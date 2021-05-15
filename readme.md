@@ -1,12 +1,8 @@
-Template
+Job Queuing
 -
-Template for my Maven libraries.
-
-## Program arguments
-Useful arguments...
+A job queue with optional resource locking.
 
 ## Adding the dependency
-Change the URLs!
 ```
 <dependencies>
     <dependency>
