@@ -23,6 +23,7 @@ public class JobFunction {
 	private JobStatus status;
 	private Long startTime;
 	private Long stopTime;
+	private Throwable throwable;
 
 	public JobFunction(JobAction jobAction) {
 		this.jobAction = jobAction;
@@ -36,12 +37,16 @@ public class JobFunction {
 		this.jobCallback = onSuccess;
 		this.jobError = onError;
 		this.jobFinalize = onComplete;
-		this.status = JobStatus.ADDED;
+		this.status = JobStatus.INITIALIZED;
 	}
 
 	JobFunction setJob(Job job) {
 		this.job = job;
 		return this;
+	}
+
+	void setStatus(JobStatus status) {
+		this.status = status;
 	}
 
 	public JobFunction setCallback(JobCallback jobCallback) {
@@ -96,11 +101,9 @@ public class JobFunction {
 				status = JobStatus.FINISHED;
 			} catch (Throwable throwable) {
 				status = JobStatus.FAILED;
+				this.throwable = throwable;
 				if (jobError != null) {
 					jobError.onError(throwable);
-				}
-				else {
-					throw throwable;
 				}
 			} finally {
 				stopTime = Instant.now().toEpochMilli();
@@ -120,6 +123,18 @@ public class JobFunction {
 		if (isStartedAlready) {
 			throw new JobAlreadyStartedException("Job already started at timestamp: " + startTime + ". Currently (" + Instant.now().toEpochMilli() + ")");
 		}
+	}
+
+	public boolean hasThrowable() {
+		return throwable != null;
+	}
+
+	/**
+	 * Get the thrown throwable/exception (if any)
+	 * @return The throwable or null
+	 */
+	public Throwable getThrowable() {
+		return throwable;
 	}
 
 	@Override

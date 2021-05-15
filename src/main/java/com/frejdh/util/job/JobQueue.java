@@ -1,6 +1,8 @@
 package com.frejdh.util.job;
 
 import com.frejdh.util.job.model.JobOptions;
+import com.frejdh.util.job.model.JobStatus;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,9 +28,11 @@ public class JobQueue {
 		this.finishedJobs = new LinkedHashMap<>();
 	}
 
-	JobQueue(List<Job> predefinedJobs) {
+	JobQueue(@Nullable List<Job> persistedJobs) {
 		this();
-		addJobDependingOnStatus(predefinedJobs);
+		if (persistedJobs != null) {
+			addJobDependingOnStatus(persistedJobs);
+		}
 		this.lastJobId = finishedJobs.values().stream().mapToLong(Job::getJobId).max().orElse(0);
 	}
 
@@ -49,8 +53,18 @@ public class JobQueue {
 		}
 	}
 
+	/**
+	 * Stops the queue. Waits for job executions to be finished
+	 */
 	public void stop() {
 		pool.shutdown();
+	}
+
+	/**
+	 * Stops the queue now. Doesn't wait for job executions to be finished
+	 */
+	public void stopNow() {
+		pool.shutdownNow();
 	}
 
 	public boolean stopAndAwait(long timeout, TimeUnit timeUnit) {
@@ -64,7 +78,7 @@ public class JobQueue {
 		return completedExecutions;
 	}
 
-	private void addJobDependingOnStatus(List<Job> jobs) {
+	private void addJobDependingOnStatus(@NotNull List<Job> jobs) {
 		jobs.forEach(job -> {
 			if (job.isFinished()) {
 				finishedJobs.put(job.getJobId(), job);
@@ -79,11 +93,12 @@ public class JobQueue {
 		synchronized (pendingJobs) {
 			job.setJobId(lastJobId++);
 			this.pendingJobs.put(job.getJobId(), job);
+			job.setStatus(JobStatus.ADDED_TO_QUEUE);
 			runScheduler(true);
 		}
 	}
 
-	protected boolean addCurrentJob(Job job) {
+	private boolean addToCurrentJobs(Job job) {
 		synchronized (currentJobsByResource) {
 			if (currentJobsByResource.putIfAbsent(job.getResourceKey(), job) != null) {
 				return false;
@@ -96,13 +111,16 @@ public class JobQueue {
 
 	void runScheduler(boolean addToPool) {
 		for (Job job : pendingJobs.values()) {
-			if (addCurrentJob(job)) {
+			if (addToCurrentJobs(job)) {
 				if (addToPool) {
 					pool.submit(() -> executeJob(job));
 				}
 				else {
 					executeJob(job);
 				}
+			}
+			else {
+				job.setStatus(JobStatus.WAITING_FOR_RESOURCE);
 			}
 		}
 	}

@@ -2,6 +2,8 @@ package com.frejdh.util.job;
 
 import com.frejdh.util.job.model.JobStatus;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import java.util.UUID;
 
 public class Job {
 
@@ -15,10 +17,14 @@ public class Job {
 
 	private String description;
 
-	public Job(@NotNull JobFunction jobFunction, @NotNull String resourceKey) {
+	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey) {
 		this.jobFunction = jobFunction;
 		this.jobFunction.setJob(this);
-		this.resourceKey = resourceKey;
+		this.resourceKey = resourceKey != null ? resourceKey : UUID.randomUUID().toString();
+	}
+
+	public Job(@NotNull JobFunction jobFunction) {
+		this(jobFunction, null);
 	}
 
 	@NotNull
@@ -69,6 +75,22 @@ public class Job {
 
 	public JobStatus getStatus() {
 		return jobFunction.getStatus();
+	}
+
+	protected void setStatus(JobStatus status) {
+		jobFunction.setStatus(status);
+	}
+
+	/**
+	 * Get the thrown exception (if any)
+	 * @return The throwable or null
+	 */
+	public Throwable getThrowable() {
+		return jobFunction.getThrowable();
+	}
+
+	public boolean hasThrowable() {
+		return jobFunction.hasThrowable();
 	}
 
 	public void setDescription(String description) {
