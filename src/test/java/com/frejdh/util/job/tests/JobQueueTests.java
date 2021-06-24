@@ -33,7 +33,7 @@ public class JobQueueTests {
 
 		List<Job> jobs = Collections.singletonList(new Job(new JobFunction(() -> fieldToChange.set(valueToChangeTo)), "doSimpleAction"));
 
-		queue = new JobQueueBuilder().runOnceOnly().setPredefinedJobs(jobs).buildAndStart();
+		queue = new JobQueueBuilder().runOnceOnly().withPredefinedJobs(jobs).buildAndStart();
 		queue.stopAndAwait(2000, TimeUnit.SECONDS);
 		Assert.assertEquals(valueToChangeTo, fieldToChange.get());
 	}
@@ -74,7 +74,7 @@ public class JobQueueTests {
 			throw new NullPointerException("test");
 		}));
 
-		queue = new JobQueueBuilder().runOnceOnly().setPredefinedJobs(Collections.singletonList(job)).buildAndStart();
+		queue = new JobQueueBuilder().runOnceOnly().withPredefinedJobs(Collections.singletonList(job)).buildAndStart();
 		queue.stopAndAwait(1000, TimeUnit.SECONDS);
 		Assert.assertTrue(job.hasThrowable());
 		Assert.assertEquals(NullPointerException.class, job.getThrowable().getClass());

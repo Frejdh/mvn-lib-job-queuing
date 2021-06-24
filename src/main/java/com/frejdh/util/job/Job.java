@@ -1,11 +1,18 @@
 package com.frejdh.util.job;
 
+import com.frejdh.util.job.model.JobOptions;
 import com.frejdh.util.job.model.JobStatus;
+import lombok.Builder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
+@Builder(toBuilder = true, setterPrefix = "with")
 public class Job {
+
+	private final long addedTimestamp;
 
 	@NotNull
 	private final JobFunction jobFunction;
@@ -13,18 +20,31 @@ public class Job {
 	@NotNull
 	private final String resourceKey;
 
+	@NotNull
+	private final JobOptions jobOptions;
+
 	private long jobId;
 
 	private String description;
 
-	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey) {
+	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey, @Nullable JobOptions jobOptions) {
+		this.addedTimestamp = Instant.now().toEpochMilli();
 		this.jobFunction = jobFunction;
 		this.jobFunction.setJob(this);
 		this.resourceKey = resourceKey != null ? resourceKey : UUID.randomUUID().toString();
+		this.jobOptions = jobOptions != null ? jobOptions : JobOptions.builder().build();
+	}
+
+	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey) {
+		this(jobFunction, resourceKey, null);
+	}
+
+	public Job(@NotNull JobFunction jobFunction, @Nullable JobOptions jobOptions) {
+		this(jobFunction, null, jobOptions);
 	}
 
 	public Job(@NotNull JobFunction jobFunction) {
-		this(jobFunction, null);
+		this(jobFunction, null, null);
 	}
 
 	@NotNull
@@ -95,6 +115,22 @@ public class Job {
 
 	public void setDescription(String description) {
 		this.description = description;
+	}
+
+	public JobOptions getJobOptions() {
+		return jobOptions;
+	}
+
+	public long getAddedTimestamp() {
+		return addedTimestamp;
+	}
+
+	public static class JobBuilder {
+
+		public JobBuilder withStatus(JobStatus status) {
+			jobFunction.setStatus(status);
+			return this;
+		}
 	}
 
 	public void start() {
