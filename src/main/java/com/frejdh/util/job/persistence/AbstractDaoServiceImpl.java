@@ -1,16 +1,13 @@
 package com.frejdh.util.job.persistence;
 
 import com.frejdh.util.job.Job;
-import com.frejdh.util.job.model.JobStatus;
 import org.jetbrains.annotations.NotNull;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-public abstract class AbstractDaoService {
+public abstract class AbstractDaoServiceImpl {
 
-	public AbstractDaoService() {
+	public AbstractDaoServiceImpl() {
 		// Empty
 	}
 
@@ -22,7 +19,7 @@ public abstract class AbstractDaoService {
 
 	abstract public boolean addToCurrentJobs(Job job);
 
-	abstract protected void removeCurrentJob(Job job);
+	abstract protected void addToFinishedJobs(Job job);
 
 	abstract public Job getJobById(Long id);
 
@@ -47,6 +44,12 @@ public abstract class AbstractDaoService {
 	abstract public Job getLastAddedJob();
 
 	abstract public Job getLastFinishedJob();
+
+	abstract public Map<Long, Job> getPendingJobs();
+
+	abstract public Map<Long, Job> getCurrentJobs();
+
+	abstract public Map<Long, Job> getFinishedJobs();
 
 	@SafeVarargs
 	protected final <T> T getFirstOrNull(T... objects) {

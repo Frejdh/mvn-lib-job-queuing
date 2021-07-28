@@ -14,17 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
-public class JobQueueTests {
-
-	private final Logger logger = Logger.getLogger(this.getClass().getName());
-	private JobQueue queue;
-
-	@After
-	public void afterTests() {
-		if (queue != null) {
-			queue.stopNow();
-		}
-	}
+public class JobQueueTests extends AbstractQueueTests {
 
 	@Test
 	public void doSimpleAction() {
@@ -47,7 +37,7 @@ public class JobQueueTests {
 		AtomicInteger fieldToChange = new AtomicInteger(originalValue);
 
 		final Job jobLockResource = new Job(new JobFunction(() -> {
-			Thread.sleep(2000);
+			Thread.sleep(1000);
 			fieldToChange.set(valueToChangeToFirst);
 		}), resourceKey);
 		final Job jobWaitForResource = new Job(new JobFunction(() -> {
@@ -59,13 +49,26 @@ public class JobQueueTests {
 		queue.add(jobLockResource);
 		queue.add(jobWaitForResource);
 
-		Thread.sleep(500);
+		getDaoService().getPendingJobs();
+
+
+		Thread.sleep(200);
 		Assert.assertEquals("Expected the locking job to have the the status " + JobStatus.RUNNING_ACTION, JobStatus.RUNNING_ACTION, jobLockResource.getStatus());
 		Assert.assertEquals("Expected the waiting job to have the the status " + JobStatus.WAITING_FOR_RESOURCE, JobStatus.WAITING_FOR_RESOURCE, jobWaitForResource.getStatus());
 		Assert.assertEquals("Expected value to be unchanged from the original: " + originalValue, originalValue, fieldToChange.get());
+		Thread.sleep(2000);
 		queue.stopAndAwait(2000, TimeUnit.SECONDS);
 		Assert.assertEquals("Expected value to be finished with: " + valueToChangeToLater, valueToChangeToLater, fieldToChange.get());
 		Assert.assertFalse("Expected no exceptions", jobWaitForResource.hasThrowable());
+
+		Assert.assertEquals(0, getDaoService().getPendingJobs().size());
+		Assert.assertEquals(0, getDaoService().getCurrentJobs().size());
+		Assert.assertEquals(2, getDaoService().getFinishedJobs().size());
+
+		System.out.println("pending: " + getDaoService().getPendingJobs());
+		System.out.println("current: " + getDaoService().getCurrentJobs());
+		System.out.println("finished: " + getDaoService().getFinishedJobs());
+
 	}
 
 	@Test

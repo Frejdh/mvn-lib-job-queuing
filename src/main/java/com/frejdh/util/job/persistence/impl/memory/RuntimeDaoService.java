@@ -2,7 +2,7 @@ package com.frejdh.util.job.persistence.impl.memory;
 
 import com.frejdh.util.job.Job;
 import com.frejdh.util.job.model.JobStatus;
-import com.frejdh.util.job.persistence.AbstractDaoService;
+import com.frejdh.util.job.persistence.AbstractDaoServiceImpl;
 import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-public class InMemoryDaoService extends AbstractDaoService {
+public class RuntimeDaoService extends AbstractDaoServiceImpl {
 
 	protected final Map<Long, Job> pendingJobs = new LinkedHashMap<>();
 	protected final Map<Long, Job> currentJobsById = new LinkedHashMap<>();
@@ -63,12 +63,12 @@ public class InMemoryDaoService extends AbstractDaoService {
 	}
 
 	/**
-	 * Helper method. Removes the current job.
+	 * Adds to the finished jobs.
 	 *
 	 * @param job Job to remove
 	 */
 	@Override
-	public synchronized void removeCurrentJob(Job job) {
+	public synchronized void addToFinishedJobs(Job job) {
 		this.currentJobsById.remove(job.getJobId());
 		this.currentJobsByResource.remove(job.getResourceKey());
 		this.currentJobFuturesByJobId.remove(job.getJobId());
@@ -162,5 +162,15 @@ public class InMemoryDaoService extends AbstractDaoService {
 		return entryList.get(entryList.size() - 1).getValue();
 	}
 
+	public Map<Long, Job> getPendingJobs() {
+		return pendingJobs;
+	}
 
+	public Map<Long, Job> getCurrentJobs() {
+		return currentJobsById;
+	}
+
+	public Map<Long, Job> getFinishedJobs() {
+		return finishedJobs;
+	}
 }

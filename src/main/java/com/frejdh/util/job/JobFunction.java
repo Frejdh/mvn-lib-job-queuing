@@ -140,7 +140,7 @@ public class JobFunction {
 	@Override
 	public String toString() {
 		return "JobFunction{" +
-				"job=" + job +
+				"jobId=" + job.getJobId() +
 				", status=" + status +
 				", startTime=" + startTime +
 				", stopTime=" + stopTime +

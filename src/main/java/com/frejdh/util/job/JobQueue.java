@@ -4,36 +4,31 @@ import com.frejdh.util.job.model.QueueOptions;
 import com.frejdh.util.job.model.JobStatus;
 import com.frejdh.util.job.persistence.DaoService;
 import com.frejdh.util.job.state.LocalJobWorkerThreadState;
-import org.jetbrains.annotations.NotNull;
+import lombok.SneakyThrows;
 import org.jetbrains.annotations.Nullable;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
+import static com.frejdh.util.common.toolbox.CommonUtils.sneakyThrow;
 
 public class JobQueue {
 
 	protected ThreadPoolExecutor pool;
 	protected QueueOptions options;
 	protected DaoService daoService = new DaoService();;
-	protected final ThreadLocal<LocalJobWorkerThreadState> threadState = new ThreadLocal<>();
-	private long lastJobId;
+	protected static ThreadLocal<LocalJobWorkerThreadState> threadState = new ThreadLocal<>();
 
 	JobQueue() { }
 
 	JobQueue(@Nullable List<Job> persistedJobs) {
-		this();
+		setCurrentJobFutureForThreadState(null);
 		if (persistedJobs != null) {
-			addJobDependingOnStatus(persistedJobs);
+			daoService.addJobDependingOnStatus(persistedJobs);
 		}
-		this.lastJobId = finishedJobs.values().stream().mapToLong(Job::getJobId).max().orElse(0);
 	}
 
 	JobQueue(QueueOptions options, @Nullable List<Job> persistedJobs) {
@@ -78,24 +73,9 @@ public class JobQueue {
 		return completedExecutions;
 	}
 
-	private void addJobDependingOnStatus(@NotNull List<Job> jobs) {
-		jobs.forEach(job -> {
-			if (job.isFinished()) {
-				finishedJobs.put(job.getJobId(), job);
-			}
-			else {
-				pendingJobs.put(job.getJobId(), job);
-			}
-		});
-	}
-
 	public void add(Job job) {
-		synchronized (pendingJobs) {
-			job.setJobId(lastJobId++);
-			this.pendingJobs.put(job.getJobId(), job);
-			job.setStatus(JobStatus.ADDED_TO_QUEUE);
-			runScheduler(false);
-		}
+		daoService.addToPendingJobs(job);
+		runScheduler(false);
 	}
 
 	/**
@@ -108,7 +88,7 @@ public class JobQueue {
 			return false;
 		}
 
-		final Future<?> future = currentJobFuturesByJobId.get(job.getJobId());
+		final Future<?> future = daoService.getCurrentJobFuturesByJobId(job.getJobId());
 		if (future == null) {
 			return false;
 		}
@@ -116,7 +96,7 @@ public class JobQueue {
 		future.cancel(true);
 		job.setStatus(JobStatus.CANCELED);
 		if (freeResourceWhenStopped) {
-			removeCurrentJob(job);
+			daoService.addToFinishedJobs(job);
 		}
 
 		return true;
@@ -125,39 +105,33 @@ public class JobQueue {
 	/**
 	 * Stop a running job (forcefully)
 	 * @param jobId ID of the Job to stop
+	 * @param freeResourceWhenStopped Free the resource or not. Default behavior is 'true'.
 	 * @return True if the job was stopped, false if the job was not found or running.
 	 */
 	public boolean stop(Long jobId, boolean freeResourceWhenStopped) {
-		final Job job = currentJobsById.get(jobId);
+		final Job job = daoService.getJobById(jobId);
 		return stop(job, freeResourceWhenStopped);
 	}
 
 	/**
-	 * Attempt to add a job to the "current" job list/mapping, also removes from the "pending" jobs list/mapping.
-	 * @param job Job to add
-	 * @return True if the job was added, false if the resource was busy.
+	 * Stop a running job (forcefully)
+	 * @param jobId ID of the Job to stop
+	 * @return True if the job was stopped, false if the job was not found or running.
 	 */
-	private boolean addToCurrentJobs(Job job) {
-		synchronized (currentJobsByResource) {
-			if (currentJobsByResource.putIfAbsent(job.getResourceKey(), job) != null) {
-				return false;
-			}
-			this.currentJobsById.put(job.getJobId(), job);
-			this.pendingJobs.remove(job.getJobId());
-		}
-		return true;
+	public boolean stop(Long jobId) {
+		return stop(jobId, true);
 	}
 
 	void runScheduler(boolean isRunningOnWorkerThread) {
-		for (Job job : pendingJobs.values()) {
-			if (addToCurrentJobs(job)) {
+		for (Job job : daoService.getPendingJobs().values()) {
+			if (daoService.addToCurrentJobs(job)) {
+				System.out.println("0: " + job.getJobId());
 				if (!isRunningOnWorkerThread) {
+					System.out.println("0.1: " + job.getJobId());
 					Future<?> future = pool.submit(() -> executeJob(job));
-					threadState.get().jobExecutionFuture = future;
-					currentJobFuturesByJobId.put(job.getJobId(), future);
+					daoService.setCurrentJobFuturesByJobId(job.getJobId(), future);
 				}
 				else {
-					currentJobFuturesByJobId.put(job.getJobId(), threadState.get().jobExecutionFuture);
 					executeJob(job);
 				}
 			}
@@ -170,77 +144,21 @@ public class JobQueue {
 	private void executeJob(Job job) {
 		// TODO: Fix concurrency!!!
 		long jobTimeout = job.getJobOptions().getTimeout();
+		System.out.println("1: " + job.getJobId());
 		if (jobTimeout != 0) {
 			try {
-				currentJobFuturesByJobId.get(job.getJobId()).get(jobTimeout, TimeUnit.MILLISECONDS);
-			} catch (InterruptedException | ExecutionException | TimeoutException e) {
-
-			}
+				daoService.getCurrentJobFuturesByJobId(job.getJobId()).get(jobTimeout, TimeUnit.MILLISECONDS);
+			} catch (InterruptedException | ExecutionException | TimeoutException ignored) { }
 		}
+		System.out.println("2: " + job.getJobId());
 		job.start();
-		removeCurrentJob(job);
+		System.out.println("3: " + job.getJobId());
+		daoService.addToFinishedJobs(job);
 		runScheduler(true);
 	}
 
-	/**
-	 * Helper method. Removes the current job.
-	 * @param job Job to remove
-	 */
-	private synchronized void removeCurrentJob(Job job) {
-		this.currentJobsById.remove(job.getJobId());
-		this.currentJobsByResource.remove(job.getResourceKey());
-		this.currentJobFuturesByJobId.remove(job.getJobId());
-		this.finishedJobs.put(job.getJobId(), job);
-	}
-
-	public Job getJobById(Long id) {
-		return pendingJobs.getOrDefault(id,
-				currentJobsById.getOrDefault(id,
-						finishedJobs.get(id)
-				)
-		);
-	}
-
-	public Map<Long, Job> getPendingJobsById() {
-		return new LinkedHashMap<>(pendingJobs);
-	}
-
-	public Job getPendingJobById(Long jobId) {
-		return pendingJobs.get(jobId);
-	}
-
-	public List<Job> getPendingJobsByResource(String resource) {
-		return pendingJobs.values()
-				.stream()
-				.filter(job -> job.getResourceKey().equals(resource))
-				.collect(Collectors.toList());
-	}
-
-	public Job getRunningJobById(Long jobId) {
-		return currentJobsById.get(jobId);
-	}
-
-	public Map<Long, Job> getRunningJobsById() {
-		return new LinkedHashMap<>(currentJobsById);
-	}
-
-	public Map<String, Job> getRunningJobsByResource() {
-		return new LinkedHashMap<>(currentJobsByResource);
-	}
-
-	public Job getRunningJobByResource(String resource) {
-		return currentJobsByResource.get(resource);
-	}
-
-	public Map<Long, Job> getFinishedJobsById() {
-		return new LinkedHashMap<>(finishedJobs);
-	}
-
-	public List<Job> getFinishedJobsByResource(String resource) {
-		return finishedJobs.values()
-				.stream()
-				.filter(job -> job.getResourceKey().equals(resource))
-				.collect(Collectors.toList());
+	private void setCurrentJobFutureForThreadState(Future<?> future) {
+		threadState.set(LocalJobWorkerThreadState.builder().withJobExecutionFuture(future).build());
 	}
 
 }

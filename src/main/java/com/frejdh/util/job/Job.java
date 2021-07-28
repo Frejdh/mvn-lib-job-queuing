@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 
 @Builder(toBuilder = true, setterPrefix = "with")
 public class Job {
@@ -26,6 +25,15 @@ public class Job {
 	private long jobId;
 
 	private String description;
+
+	protected Job(long addedTimestamp, @NotNull JobFunction jobFunction, @NotNull String resourceKey, @NotNull JobOptions jobOptions, long jobId, String description) {
+		this.addedTimestamp = addedTimestamp;
+		this.jobFunction = jobFunction;
+		this.resourceKey = resourceKey;
+		this.jobOptions = jobOptions;
+		this.jobId = jobId;
+		this.description = description;
+	}
 
 	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey, @Nullable JobOptions jobOptions) {
 		this.addedTimestamp = Instant.now().toEpochMilli();
@@ -137,4 +145,15 @@ public class Job {
 		jobFunction.start();
 	}
 
+	@Override
+	public String toString() {
+		return "Job{" +
+				"addedTimestamp=" + addedTimestamp +
+				", jobFunction=" + jobFunction +
+				", resourceKey='" + resourceKey + '\'' +
+				", jobOptions=" + jobOptions +
+				", jobId=" + jobId +
+				", description='" + description + '\'' +
+				'}';
+	}
 }
