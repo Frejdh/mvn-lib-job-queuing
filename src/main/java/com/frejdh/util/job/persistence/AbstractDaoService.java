@@ -6,27 +6,31 @@ import org.jetbrains.annotations.NotNull;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public abstract class AbstractDaoService {
+
+	public static final String ARG_PERSISTENCE_MODE = "config.persistence.mode";
+	public static final String ARG_IMPLEMENTATION_CLASS = "config.persistence.custom.implementation-class";
 
 	public AbstractDaoService() {
 		// Empty
 	}
 
-	protected long lastJobId;
+	protected AtomicLong lastJobId = new AtomicLong(0);
 
-	abstract public void addJobDependingOnStatus(@NotNull List<Job> jobs);
+	abstract public Job addJob(@NotNull Job job);
 
-	abstract public void addToPendingJobs(Job job);
+	abstract public Job updateJob(@NotNull Job job);
 
-	abstract public boolean addToCurrentJobs(Job job);
+	abstract public Job updateJobOnlyOnFreeResource(@NotNull Job job);
 
-	abstract protected void removeCurrentJob(Job job);
+	abstract protected Job removeJob(@NotNull Job job);
 
 	abstract public Job getJobById(Long id);
 
-	abstract public Map<Long, Job> getPendingJobsById();
+	abstract public Map<Long, Job> getPendingJobs();
 
 	abstract public Job getPendingJobById(Long jobId);
 
@@ -34,9 +38,9 @@ public abstract class AbstractDaoService {
 
 	abstract public Job getRunningJobById(Long jobId);
 
-	abstract public Map<Long, Job> getRunningJobsById();
+	abstract public Map<Long, Job> getRunningJobs();
 
-	abstract public Map<String, Job> getRunningJobsByResource();
+	abstract public Map<String, Job> getRunningJobsForResources();
 
 	abstract public Job getRunningJobByResource(String resource);
 
@@ -47,6 +51,18 @@ public abstract class AbstractDaoService {
 	abstract public Job getLastAddedJob();
 
 	abstract public Job getLastFinishedJob();
+
+	protected boolean isPendingJob(Job job) {
+		return job != null && job.isStarted();
+	}
+
+	protected boolean isCurrentJob(Job job) {
+		return job != null && job.isRunning();
+	}
+
+	protected boolean isFinishedJob(Job job) {
+		return job != null && job.isFinished();
+	}
 
 	@SafeVarargs
 	protected final <T> T getFirstOrNull(T... objects) {

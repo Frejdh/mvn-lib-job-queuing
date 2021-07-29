@@ -52,7 +52,13 @@
         <dependency>
             <groupId>com.frejdh.util.environment</groupId>
             <artifactId>configurator</artifactId>
-            <version>1.2.0</version>
+            <version>1.1.1</version>
+        </dependency>
+
+        <dependency> <!-- Lightweight warning annotation -->
+            <groupId>com.pushtorefresh</groupId>
+            <artifactId>javac-warning-annotation</artifactId>
+            <version>1.0.0</version>
         </dependency>
     </dependencies>
 
@@ -119,6 +125,10 @@
         <repository>
             <id>library-master-pom</id>
             <url>https://raw.github.com/Frejdh/mvn-lib-master/releases/</url>
+        </repository>
+        <repository>
+            <id>mvn-lib-configurator</id>
+            <url>https://raw.github.com/Frejdh/mvn-lib-configurator/releases/</url>
         </repository>
     </repositories>
 

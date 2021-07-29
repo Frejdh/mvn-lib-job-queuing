@@ -1,4 +1,4 @@
-package com.frejdh.util.job.model.interfaces;
+package com.frejdh.util.job.model.callables;
 
 @FunctionalInterface
 public interface JobAction {

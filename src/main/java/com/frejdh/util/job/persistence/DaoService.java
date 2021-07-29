@@ -2,44 +2,79 @@ package com.frejdh.util.job.persistence;
 
 import com.frejdh.util.environment.Config;
 import com.frejdh.util.job.Job;
-import com.frejdh.util.job.persistence.impl.h2.H2DaoService;
+import com.frejdh.util.job.persistence.config.DaoPersistence;
+import com.frejdh.util.job.persistence.config.DaoPersistenceMode;
 import lombok.SneakyThrows;
-import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
+
+/**
+ * Default config DAO-service.
+ * Get the configured DaoService accordingly to the environmental properties.
+ */
 public class DaoService extends AbstractDaoService {
 
+	private static final DaoPersistence DEFAULT_CONFIGURATION = new DaoPersistence(DaoPersistenceMode.RUNTIME);
 	private final AbstractDaoService impl;
-	private static final String CLASSPATH_IMPL_ARG = "config.persistence.implementation-class";
 
 	@SneakyThrows
 	public DaoService() {
-		this.impl = mapClasspathArgumentToClass();
+		this.impl = getImplementation();
 	}
 
-	@Override
-	public boolean addToCurrentJobs(Job job) {
-		return false;
+	@SneakyThrows
+	private AbstractDaoService getImplementation() {
+		DaoPersistence config = getImplementationConfigFromProperties();
+		return config.getImplementationClass().getDeclaredConstructor().newInstance();
 	}
 
-	@Override
-	protected void removeCurrentJob(Job job) {
-
+	private DaoPersistence getImplementationConfigFromProperties() {
+		DaoPersistenceMode mode = DaoPersistenceMode.toEnum(Config.getString(ARG_PERSISTENCE_MODE));
+		if (mode == null) {
+			return DEFAULT_CONFIGURATION;
+		}
+		else if (mode == DaoPersistenceMode.CUSTOM) {
+			return new DaoPersistence(getDaoImplementationClassFromClasspath());
+		}
+		return new DaoPersistence(mode);
 	}
 
 	@SuppressWarnings("unchecked")
-	private AbstractDaoService mapClasspathArgumentToClass() throws ClassNotFoundException, InstantiationException, IllegalAccessException {
-		String classpathArg = Config.getString(CLASSPATH_IMPL_ARG, H2DaoService.class.getCanonicalName());
-		if (StringUtils.isBlank(classpathArg)) {
-			throw new ClassNotFoundException("Missing value for implementation class for argument '" + CLASSPATH_IMPL_ARG + "'");
+	private Class<? extends AbstractDaoService> getDaoImplementationClassFromClasspath() {
+		String classpath = Config.getString(ARG_IMPLEMENTATION_CLASS);
+		Class<? extends AbstractDaoService> classToUse;
+		try {
+			classToUse = classpath != null
+					? (Class<? extends AbstractDaoService>) Class.forName(classpath)
+					: DEFAULT_CONFIGURATION.getImplementationClass();
+		} catch (ClassNotFoundException e) {
+			classToUse = DEFAULT_CONFIGURATION.getImplementationClass();
 		}
+		return classToUse;
+	}
 
-		return (Objects.requireNonNull(!classpathArg.contains(".")
-				? PredefinedDaoImplementation.toImplementationClass(classpathArg)
-				: (Class<? extends AbstractDaoService>) Class.forName(classpathArg))
-		).newInstance();
+	@Override
+	public Job addJob(@NotNull Job job) {
+		return impl.addJob(job);
+	}
+
+	@Override
+	public Job updateJob(@NotNull Job job) {
+		System.out.println("Updating: " + job.getStatus());
+		return impl.updateJob(job);
+	}
+
+	@Override
+	public Job updateJobOnlyOnFreeResource(@NotNull Job job) {
+		return impl.updateJobOnlyOnFreeResource(job);
+	}
+
+	@Override
+	protected Job removeJob(@NotNull Job job) {
+		return impl.removeJob(job);
 	}
 
 	@Override
@@ -47,9 +82,13 @@ public class DaoService extends AbstractDaoService {
 		return impl.getJobById(id);
 	}
 
+	/**
+	 * Get pending jobs in order. Oldest job starts at index 0.
+	 * @return A map of the jobs, when converted to a collection it will be ordered.
+	 */
 	@Override
-	public Map<Long, Job> getPendingJobsById() {
-		return impl.getPendingJobsById();
+	public Map<Long, Job> getPendingJobs() {
+		return impl.getPendingJobs();
 	}
 
 	@Override
@@ -68,13 +107,13 @@ public class DaoService extends AbstractDaoService {
 	}
 
 	@Override
-	public Map<Long, Job> getRunningJobsById() {
-		return impl.getRunningJobsById();
+	public Map<Long, Job> getRunningJobs() {
+		return impl.getRunningJobs();
 	}
 
 	@Override
-	public Map<String, Job> getRunningJobsByResource() {
-		return impl.getRunningJobsByResource();
+	public Map<String, Job> getRunningJobsForResources() {
+		return impl.getRunningJobsForResources();
 	}
 
 	@Override

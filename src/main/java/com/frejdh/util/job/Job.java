@@ -2,52 +2,77 @@ package com.frejdh.util.job;
 
 import com.frejdh.util.job.model.JobOptions;
 import com.frejdh.util.job.model.JobStatus;
+import com.frejdh.util.job.model.callables.JobAction;
+import com.frejdh.util.job.model.callables.JobOnCallback;
+import com.frejdh.util.job.model.callables.JobOnError;
+import com.frejdh.util.job.model.callables.JobOnFinalize;
+import com.frejdh.util.job.model.callables.JobOnStatusChange;
+import com.pushtorefresh.javac_warning_annotation.Warning;
 import lombok.Builder;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 
-@Builder(toBuilder = true, setterPrefix = "with")
+
+@SuppressWarnings("FieldMayBeFinal")
 public class Job {
 
-	private final long addedTimestamp;
+	private static final int UNASSIGNED_VALUE = -1;
+
+	@Builder.Default
+	private long addedTimestamp = UNASSIGNED_VALUE;
 
 	@NotNull
-	private final JobFunction jobFunction;
+	private JobFunction jobFunction;
 
-	@NotNull
 	private final String resourceKey;
 
 	@NotNull
 	private final JobOptions jobOptions;
 
-	private long jobId;
+	/**
+	 * ID of the job. Will be overridden by the JobQueue implementation!
+	 */
+	@Builder.Default
+	private long jobId = UNASSIGNED_VALUE;
 
 	private String description;
 
-	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey, @Nullable JobOptions jobOptions) {
-		this.addedTimestamp = Instant.now().toEpochMilli();
+	/**
+	 * Lombok toBuilder constructor. Not for normal usage.
+	 */
+	protected Job(long addedTimestamp,
+				  @NotNull JobFunction jobFunction,
+				  String resourceKey,
+				  JobOptions jobOptions,
+				  long jobId,
+				  String description) {
+		this(jobFunction, resourceKey, jobOptions, description, jobId);
+
+		if (this.addedTimestamp == UNASSIGNED_VALUE && addedTimestamp != 0) {
+			this.addedTimestamp = Instant.now().toEpochMilli();
+		}
+		else if (this.addedTimestamp == UNASSIGNED_VALUE) {
+			this.addedTimestamp = addedTimestamp;
+		}
+
+		setJobId(jobId);
+		this.description = description;
+	}
+
+	@Builder(toBuilder = true, setterPrefix = "with")
+	public Job(@NotNull JobFunction jobFunction, String resourceKey, JobOptions jobOptions, String description, long jobId) {
 		this.jobFunction = jobFunction;
-		this.jobFunction.setJob(this);
-		this.resourceKey = resourceKey != null ? resourceKey : UUID.randomUUID().toString();
+		this.resourceKey = resourceKey;
 		this.jobOptions = jobOptions != null ? jobOptions : JobOptions.builder().build();
+		this.description = description;
+		this.jobId = jobId;
+		setRequiredJobFunctionData();
 	}
 
-	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey) {
-		this(jobFunction, resourceKey, null);
+	private void setRequiredJobFunctionData() {
+		this.jobFunction.setJob(this);
 	}
 
-	public Job(@NotNull JobFunction jobFunction, @Nullable JobOptions jobOptions) {
-		this(jobFunction, null, jobOptions);
-	}
-
-	public Job(@NotNull JobFunction jobFunction) {
-		this(jobFunction, null, null);
-	}
-
-	@NotNull
 	public String getResourceKey() {
 		return resourceKey;
 	}
@@ -57,8 +82,17 @@ public class Job {
 		return jobId;
 	}
 
+	/**
+	 * Positive numbers only
+	 */
 	void setJobId(Long id) {
-		this.jobId = id;
+		if (id != null && id >= 0) {
+			this.jobId = id;
+		}
+	}
+
+	public boolean hasJobId() {
+		return this.jobId != UNASSIGNED_VALUE;
 	}
 
 	/**
@@ -125,12 +159,65 @@ public class Job {
 		return addedTimestamp;
 	}
 
+	void setOnJobStatusChange(JobOnStatusChange onStatusChange) {
+		this.jobFunction.setOnStatusChange(onStatusChange);
+	}
+
+	JobOnError getOnJobError() {
+		return this.jobFunction.getJobOnError();
+	}
+
+	void setOnJobError(JobOnError onError) {
+		this.jobFunction.setOnError(onError);
+	}
+
 	public static class JobBuilder {
+		private static final JobAction ACTION_PLACEHOLDER = () -> {};
+		private JobFunction jobFunction = JobFunction.builder()
+				.action(ACTION_PLACEHOLDER)
+				.build();
 
 		public JobBuilder withStatus(JobStatus status) {
 			jobFunction.setStatus(status);
 			return this;
 		}
+
+		public JobBuilder withAction(JobAction action) {
+			jobFunction.setAction(action);
+			return this;
+		}
+
+		public JobBuilder onCallback(JobOnCallback onCallback) {
+			jobFunction.setOnCallback(onCallback);
+			return this;
+		}
+
+		public JobBuilder onError(JobOnError onError) {
+			jobFunction.setOnError(onError);
+			return this;
+		}
+
+		public JobBuilder onFinalize(JobOnFinalize onFinalize) {
+			jobFunction.setOnFinalize(onFinalize);
+			return this;
+		}
+
+		public JobBuilder onStatusChange(JobOnStatusChange onStatusChange) {
+			jobFunction.setOnStatusChange(onStatusChange);
+			return this;
+		}
+
+		/**
+		 * This will be overridden by the JobQueue's DAO implementation.
+		 * This is only suitable to be called by this aforementioned DAO implementation.
+		 */
+		@Deprecated
+		@SuppressWarnings("DeprecatedIsStillUsed")
+		public JobBuilder withJobId(long jobId) {
+			this.jobId = jobId;
+			return this;
+		}
+
 	}
 
 	public void start() {
