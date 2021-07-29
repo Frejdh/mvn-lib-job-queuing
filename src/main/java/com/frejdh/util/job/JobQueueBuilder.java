@@ -1,10 +1,9 @@
 package com.frejdh.util.job;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.frejdh.util.job.model.QueueOptions;
-import java.io.File;
-import java.io.IOException;
+import com.frejdh.util.job.model.callables.JobOnError;
+import lombok.SneakyThrows;
+
 import java.util.List;
 
 public class JobQueueBuilder {
@@ -41,39 +40,35 @@ public class JobQueueBuilder {
 		return this;
 	}
 
+	/**
+	 * Set a shared on error handler. Executes <i>before</i> the individual job's on error handler (if any).
+	 * @return This builder reference.
+	 */
+	@SneakyThrows
+	public JobQueueBuilder withOnErrorHandler(JobOnError onErrorHandler) {
+		queueOptionsBuilder.withOnJobError(onErrorHandler);
+		return this;
+	}
+
 	public JobQueueBuilder withPredefinedJobs(List<Job> predefinedJobs) {
 		this.predefinedJobs = predefinedJobs;
 		return this;
 	}
 
+	public JobQueueBuilder withDebugMode(boolean enable) {
+		queueOptionsBuilder.withDebugMode(enable);
+		return this;
+	}
+
 	public JobQueue build() {
 		QueueOptions queueOptions = queueOptionsBuilder.build();
-		return new JobQueue(queueOptions, getExistingJobs(queueOptions));
+		return new JobQueue(queueOptions, predefinedJobs);
 	}
 
 	public JobQueue buildAndStart() {
 		JobQueue retval = build();
 		retval.start();
 		return retval;
-	}
-
-	private List<Job> getExistingJobs(QueueOptions queueOptions) {
-		if (predefinedJobs != null) {
-			return predefinedJobs;
-		}
-		else if (!queueOptions.hasPersistenceFile()) {
-			return null;
-		}
-
-		try {
-			return new ObjectMapper().readValue(
-					new File(queueOptions.getPersistenceFile()),
-					new TypeReference<List<Job>>(){}
-			);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return null;
 	}
 
 	public JobQueueBuilder runOnceOnly() {

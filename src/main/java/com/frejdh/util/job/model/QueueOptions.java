@@ -1,10 +1,14 @@
 package com.frejdh.util.job.model;
 
 import com.frejdh.util.job.Job;
+import com.frejdh.util.job.model.callables.JobOnError;
 import lombok.Builder;
 import lombok.Getter;
+
+import java.util.ArrayList;
 import java.util.List;
 
+@SuppressWarnings("FieldMayBeFinal")
 @Builder(toBuilder = true, setterPrefix = "with")
 @Getter
 public class QueueOptions {
@@ -18,10 +22,18 @@ public class QueueOptions {
 	private int amountOfThreads = DEFAULT_AMOUNT_OF_THREADS;
 
 	private String persistenceFile;
-	private boolean singleExecution;
-	private List<Job> predefinedJobs;
 
-	public boolean hasPersistenceFile() {
-		return persistenceFile != null;
+	@Builder.Default
+	private boolean singleExecution = false;
+
+	@Builder.Default
+	private List<Job> predefinedJobs = new ArrayList<>();
+
+	private JobOnError onJobError;
+
+	private boolean debugMode;
+
+	public static QueueOptions getDefault() {
+		return QueueOptions.builder().build();
 	}
 }

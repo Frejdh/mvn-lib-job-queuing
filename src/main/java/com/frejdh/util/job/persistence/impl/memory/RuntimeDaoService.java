@@ -5,11 +5,9 @@ import com.frejdh.util.job.model.JobStatus;
 import com.frejdh.util.job.persistence.AbstractDaoServiceImpl;
 import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class RuntimeDaoService extends AbstractDaoServiceImpl {
@@ -18,29 +16,54 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 	protected final Map<Long, Job> currentJobsById = new LinkedHashMap<>();
 	protected final Map<String, Job> currentJobsByResource = new LinkedHashMap<>();
 	protected final Map<Long, Job> finishedJobs = new LinkedHashMap<>();
-	protected final Map<Long, Future<?>> currentJobFuturesByJobId = new HashMap<>();
 
 	@Override
-	public void addJobDependingOnStatus(@NotNull List<Job> jobs) {
-		jobs.forEach(job -> {
-			if (job.isFinished()) {
-				finishedJobs.put(job.getJobId(), job);
-			}
-			else {
-				pendingJobs.put(job.getJobId(), job);
-			}
-		});
+	public Job addJob(@NotNull Job job) {
+		if (job.getStatus().isPending()) {
+			return addToPendingJobs(job) ? job : null;
+		}
+		else if (job.getStatus().isRunning()) {
+			return addToCurrentJobs(job) ? job : null;
+		}
+		return addToFinishedJobs(job) ? job : null;
 	}
 
 	@Override
-	public void addToPendingJobs(Job job) {
+	public Job updateJob(@NotNull Job job) {
+		final JobStatus jobStatus = job.getStatus();
+		final long jobId = job.getJobId();
+		final boolean pendingJobsContainsKey = pendingJobs.containsKey(jobId);
+		final boolean currentJobsContainsKey = currentJobsById.containsKey(jobId);
+		final boolean finishedJobsContainsKey = finishedJobs.containsKey(jobId);
+
+		if (!jobStatus.isPending() && pendingJobsContainsKey) {
+			removePendingJob(job);
+		}
+		if (!jobStatus.isRunning() && currentJobsContainsKey) {
+			removeCurrentJob(job);
+		}
+		if (!jobStatus.isDone() && finishedJobsContainsKey) {
+			removeFinishedJob(job);
+		}
+
+		return addJob(job);
+	}
+
+	@Override
+	public Job updateJobOnlyOnFreeResource(@NotNull Job job) {
+		String resourceKey = job.getResourceKey();
+		if (resourceKey == null || !currentJobsByResource.containsKey(resourceKey)) {
+			return updateJob(job);
+		}
+		return null;
+	}
+
+	public boolean addToPendingJobs(Job job) {
 		synchronized (pendingJobs) {
-			this.pendingJobs.put(job.getJobId(), job.toBuilder()
-					.withJobId(lastJobId++)
-					.withStatus(JobStatus.ADDED_TO_QUEUE)
-					.build()
-			);
-			// runScheduler(false);
+			if (!job.hasJobId()) {
+				setJobId(job, lastJobId.getAndIncrement());
+			}
+			return this.pendingJobs.put(job.getJobId(), job) != null;
 		}
 	}
 
@@ -50,29 +73,24 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 	 * @param job Job to add
 	 * @return True if the job was added, false if the resource was busy.
 	 */
-	@Override
 	public boolean addToCurrentJobs(Job job) {
 		synchronized (currentJobsByResource) {
-			if (currentJobsByResource.putIfAbsent(job.getResourceKey(), job) != null) {
+			if (job.hasStartedAlready() || (job.getResourceKey() != null && currentJobsByResource.putIfAbsent(job.getResourceKey(), job) != null)) {
 				return false;
 			}
-			this.currentJobsById.put(job.getJobId(), job);
 			this.pendingJobs.remove(job.getJobId());
+			this.finishedJobs.remove(job.getJobId());
+			this.currentJobsById.put(job.getJobId(), job);
 		}
 		return true;
 	}
 
-	/**
-	 * Adds to the finished jobs.
-	 *
-	 * @param job Job to remove
-	 */
-	@Override
-	public synchronized void addToFinishedJobs(Job job) {
-		this.currentJobsById.remove(job.getJobId());
-		this.currentJobsByResource.remove(job.getResourceKey());
-		this.currentJobFuturesByJobId.remove(job.getJobId());
-		this.finishedJobs.put(job.getJobId(), job);
+	public boolean addToFinishedJobs(Job job) {
+		synchronized (finishedJobs) {
+			this.currentJobsById.remove(job.getJobId());
+			this.currentJobsByResource.remove(job.getResourceKey());
+			return this.finishedJobs.put(job.getJobId(), job) != null;
+		}
 	}
 
 	@Override
@@ -85,8 +103,13 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 	}
 
 	@Override
-	public Map<Long, Job> getPendingJobsById() {
+	public Map<Long, Job> getPendingJobs() {
 		return new LinkedHashMap<>(pendingJobs);
+	}
+
+	@Override
+	public Map<Long, Job> getFinishedJobs() {
+		return finishedJobs;
 	}
 
 	@Override
@@ -98,27 +121,27 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 	public List<Job> getPendingJobsByResource(String resource) {
 		return pendingJobs.values()
 				.stream()
-				.filter(job -> job.getResourceKey().equals(resource))
+				.filter(job -> resource.equals(job.getResourceKey()))
 				.collect(Collectors.toList());
 	}
 
 	@Override
-	public Job getRunningJobById(Long jobId) {
+	public Job getCurrentJobById(Long jobId) {
 		return currentJobsById.get(jobId);
 	}
 
 	@Override
-	public Map<Long, Job> getRunningJobsById() {
+	public Map<Long, Job> getCurrentJobs() {
 		return new LinkedHashMap<>(currentJobsById);
 	}
 
 	@Override
-	public Map<String, Job> getRunningJobsByResource() {
+	public Map<String, Job> getCurrentJobsForResources() {
 		return new LinkedHashMap<>(currentJobsByResource);
 	}
 
 	@Override
-	public Job getRunningJobByResource(String resource) {
+	public Job getCurrentJobByResource(String resource) {
 		return currentJobsByResource.get(resource);
 	}
 
@@ -131,7 +154,7 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 	public List<Job> getFinishedJobsByResource(String resource) {
 		return finishedJobs.values()
 				.stream()
-				.filter(job -> job.getResourceKey().equals(resource))
+				.filter(job -> resource.equals(job.getResourceKey()))
 				.collect(Collectors.toList());
 	}
 
@@ -144,6 +167,48 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 					getLastJobOfOrderedMap(finishedJobs)
 			);
 		}
+	}
+
+	@Override
+	protected Job removeJob(@NotNull Job job) {
+		Job retval = removePendingJob(job);
+		if (retval == null) {
+			retval = removeFinishedJob(job);
+		}
+		if (retval == null) {
+			retval = removeCurrentJob(job);
+		}
+		return retval;
+	}
+
+	private Job removePendingJob(Job job) {
+		Job retval;
+		synchronized (pendingJobs) {
+			retval = pendingJobs.remove(job.getJobId());
+		}
+
+		return retval;
+	}
+
+	private Job removeCurrentJob(Job job) {
+		Job retval;
+		synchronized (currentJobsById) {
+			retval = currentJobsById.remove(job.getJobId());
+			if (job.getResourceKey() != null) {
+				currentJobsByResource.remove(job.getResourceKey());
+			}
+		}
+
+		return retval;
+	}
+
+	private Job removeFinishedJob(Job job) {
+		Job retval;
+		synchronized (finishedJobs) {
+			retval = finishedJobs.remove(job.getJobId());
+		}
+
+		return retval;
 	}
 
 	@Override
@@ -162,15 +227,5 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 		return entryList.get(entryList.size() - 1).getValue();
 	}
 
-	public Map<Long, Job> getPendingJobs() {
-		return pendingJobs;
-	}
 
-	public Map<Long, Job> getCurrentJobs() {
-		return currentJobsById;
-	}
-
-	public Map<Long, Job> getFinishedJobs() {
-		return finishedJobs;
-	}
 }

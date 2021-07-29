@@ -2,60 +2,51 @@ package com.frejdh.util.job;
 
 import com.frejdh.util.job.model.JobOptions;
 import com.frejdh.util.job.model.JobStatus;
+import com.frejdh.util.job.model.callables.JobAction;
+import com.frejdh.util.job.model.callables.JobOnCallback;
+import com.frejdh.util.job.model.callables.JobOnError;
+import com.frejdh.util.job.model.callables.JobOnFinalize;
+import com.frejdh.util.job.model.callables.JobOnStatusChange;
 import lombok.Builder;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import java.time.Instant;
-import java.util.UUID;
 
-@Builder(toBuilder = true, setterPrefix = "with")
+
+@SuppressWarnings("FieldMayBeFinal")
 public class Job {
 
-	private final long addedTimestamp;
+	protected static final int UNASSIGNED_VALUE = -1;
+
+	@Builder.Default
+	protected long addedTimestamp = UNASSIGNED_VALUE;
 
 	@NotNull
-	private final JobFunction jobFunction;
+	protected JobFunction jobFunction;
 
-	@NotNull
-	private final String resourceKey;
+	protected String resourceKey;
 
-	@NotNull
-	private final JobOptions jobOptions;
+	protected JobOptions jobOptions;
 
-	private long jobId;
+	/**
+	 * ID of the job. Will be overridden by the JobQueue implementation!
+	 */
+	@Builder.Default
+	protected long jobId = UNASSIGNED_VALUE;
 
-	private String description;
+	protected String description;
 
-	protected Job(long addedTimestamp, @NotNull JobFunction jobFunction, @NotNull String resourceKey, @NotNull JobOptions jobOptions, long jobId, String description) {
-		this.addedTimestamp = addedTimestamp;
+	@Builder(setterPrefix = "with")
+	public Job(@NotNull JobFunction jobFunction, String resourceKey, JobOptions jobOptions, String description) {
 		this.jobFunction = jobFunction;
 		this.resourceKey = resourceKey;
-		this.jobOptions = jobOptions;
-		this.jobId = jobId;
-		this.description = description;
-	}
-
-	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey, @Nullable JobOptions jobOptions) {
-		this.addedTimestamp = Instant.now().toEpochMilli();
-		this.jobFunction = jobFunction;
-		this.jobFunction.setJob(this);
-		this.resourceKey = resourceKey != null ? resourceKey : UUID.randomUUID().toString();
 		this.jobOptions = jobOptions != null ? jobOptions : JobOptions.builder().build();
+		this.description = description;
+		setRequiredJobFunctionData();
 	}
 
-	public Job(@NotNull JobFunction jobFunction, @Nullable String resourceKey) {
-		this(jobFunction, resourceKey, null);
+	private void setRequiredJobFunctionData() {
+		this.jobFunction.setJob(this);
 	}
 
-	public Job(@NotNull JobFunction jobFunction, @Nullable JobOptions jobOptions) {
-		this(jobFunction, null, jobOptions);
-	}
-
-	public Job(@NotNull JobFunction jobFunction) {
-		this(jobFunction, null, null);
-	}
-
-	@NotNull
 	public String getResourceKey() {
 		return resourceKey;
 	}
@@ -65,8 +56,17 @@ public class Job {
 		return jobId;
 	}
 
+	/**
+	 * Positive numbers only
+	 */
 	void setJobId(Long id) {
-		this.jobId = id;
+		if (id != null && id >= 0) {
+			this.jobId = id;
+		}
+	}
+
+	public boolean hasJobId() {
+		return this.jobId != UNASSIGNED_VALUE;
 	}
 
 	/**
@@ -105,7 +105,7 @@ public class Job {
 		return jobFunction.getStatus();
 	}
 
-	protected void setStatus(JobStatus status) {
+	void setStatus(JobStatus status) {
 		jobFunction.setStatus(status);
 	}
 
@@ -133,12 +133,58 @@ public class Job {
 		return addedTimestamp;
 	}
 
+	void setOnJobStatusChange(JobOnStatusChange onStatusChange) {
+		this.jobFunction.setOnStatusChange(onStatusChange);
+	}
+
+	JobOnError getOnJobError() {
+		return this.jobFunction.getJobOnError();
+	}
+
+	void setOnJobError(JobOnError onError) {
+		this.jobFunction.setOnError(onError);
+	}
+
+	public boolean hasStartedAlready() {
+		return jobFunction.hasStartedAlready();
+	}
+
 	public static class JobBuilder {
+		private static final JobAction ACTION_PLACEHOLDER = () -> {};
+		private JobFunction jobFunction = JobFunction.builder()
+				.action(ACTION_PLACEHOLDER)
+				.build();
 
 		public JobBuilder withStatus(JobStatus status) {
 			jobFunction.setStatus(status);
 			return this;
 		}
+
+		public JobBuilder withAction(JobAction action) {
+			jobFunction.setAction(action);
+			return this;
+		}
+
+		public JobBuilder onCallback(JobOnCallback onCallback) {
+			jobFunction.setOnCallback(onCallback);
+			return this;
+		}
+
+		public JobBuilder onError(JobOnError onError) {
+			jobFunction.setOnError(onError);
+			return this;
+		}
+
+		public JobBuilder onFinalize(JobOnFinalize onFinalize) {
+			jobFunction.setOnFinalize(onFinalize);
+			return this;
+		}
+
+		public JobBuilder onStatusChange(JobOnStatusChange onStatusChange) {
+			jobFunction.setOnStatusChange(onStatusChange);
+			return this;
+		}
+
 	}
 
 	public void start() {

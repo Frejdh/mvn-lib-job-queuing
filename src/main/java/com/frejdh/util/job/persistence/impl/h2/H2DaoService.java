@@ -9,13 +9,8 @@ import java.util.Map;
 public class H2DaoService extends AbstractDaoServiceImpl {
 
 	@Override
-	public void addJobDependingOnStatus(@NotNull List<Job> jobs) {
-
-	}
-
-	@Override
-	public void addToPendingJobs(Job job) {
-
+	public boolean addToPendingJobs(Job job) {
+		return false;
 	}
 
 	@Override
@@ -24,8 +19,28 @@ public class H2DaoService extends AbstractDaoServiceImpl {
 	}
 
 	@Override
-	protected void addToFinishedJobs(Job job) {
+	public boolean addToFinishedJobs(Job job) {
+		return false;
+	}
 
+	@Override
+	public Job addJob(@NotNull Job job) {
+		return null;
+	}
+
+	@Override
+	public Job updateJob(@NotNull Job job) {
+		return null;
+	}
+
+	@Override
+	public Job updateJobOnlyOnFreeResource(@NotNull Job job) {
+		return null;
+	}
+
+	@Override
+	protected Job removeJob(@NotNull Job job) {
+		return null;
 	}
 
 	@Override
@@ -33,10 +48,6 @@ public class H2DaoService extends AbstractDaoServiceImpl {
 		return null;
 	}
 
-	@Override
-	public Map<Long, Job> getPendingJobsById() {
-		return null;
-	}
 
 	@Override
 	public Job getPendingJobById(Long jobId) {
@@ -49,22 +60,18 @@ public class H2DaoService extends AbstractDaoServiceImpl {
 	}
 
 	@Override
-	public Job getRunningJobById(Long jobId) {
+	public Job getCurrentJobById(Long jobId) {
+		return null;
+	}
+
+
+	@Override
+	public Map<String, Job> getCurrentJobsForResources() {
 		return null;
 	}
 
 	@Override
-	public Map<Long, Job> getRunningJobsById() {
-		return null;
-	}
-
-	@Override
-	public Map<String, Job> getRunningJobsByResource() {
-		return null;
-	}
-
-	@Override
-	public Job getRunningJobByResource(String resource) {
+	public Job getCurrentJobByResource(String resource) {
 		return null;
 	}
 

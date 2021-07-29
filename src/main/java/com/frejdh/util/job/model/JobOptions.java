@@ -25,4 +25,11 @@ public class JobOptions {
 			return this;
 		}
 	}
+
+	@Override
+	public String toString() {
+		return "JobOptions{" +
+				"timeout=" + timeout +
+				'}';
+	}
 }
