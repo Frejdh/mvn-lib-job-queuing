@@ -6,7 +6,6 @@ import com.frejdh.util.job.model.callables.JobOnError;
 import com.frejdh.util.job.persistence.DaoService;
 import com.frejdh.util.job.state.LocalJobWorkerThreadState;
 import com.frejdh.util.job.util.JobQueueLogger;
-import lombok.extern.log4j.Log4j2;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,7 +20,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
-@Log4j2
 public class JobQueue {
 
 	private static final Logger LOGGER = JobQueueLogger.getLogger();
@@ -40,14 +38,14 @@ public class JobQueue {
 	}
 
 	JobQueue(QueueOptions options, List<Job> jobs) {
-		this.pool = (ThreadPoolExecutor) createThreadPool();
+		this.pool = (ThreadPoolExecutor) createThreadPool(options);
 		this.options = options;
 		if (jobs != null) {
 			jobs.forEach(this::add);
 		}
 	}
 
-	private ExecutorService createThreadPool() {
+	private ExecutorService createThreadPool(QueueOptions options) {
 		if (options.isCachedThreadPool()) {
 			return new ThreadPoolExecutor(
 					0,

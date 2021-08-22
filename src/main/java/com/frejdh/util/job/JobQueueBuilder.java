@@ -20,23 +20,12 @@ public class JobQueueBuilder {
 	}
 
 	/**
-	 * Set the max number of parallel jobs per thread.
-	 * A value of 4 jobs on 2 threads, means that it can be up to 8 <i>(4*2)</i> concurrent jobs at any time.
-	 * <strong>Default value is {@link QueueOptions#DEFAULT_MAX_PARALLEL_JOBS}</strong>.
-	 * @return This builder reference.
-	 */
-	public JobQueueBuilder withMaxParallelJobs(int maxParallelJobs) {
-		queueOptionsBuilder.withMaxParallelJobs(maxParallelJobs);
-		return this;
-	}
-
-	/**
 	 * Set the number of threads to utilize.
 	 * <strong>Default value is {@link QueueOptions#DEFAULT_MAX_AMOUNT_OF_THREADS}</strong>.
 	 * @return This builder reference.
 	 */
-	public JobQueueBuilder withAmountOfThreads(int amountOfThreads) {
-		queueOptionsBuilder.withAmountOfThreads(amountOfThreads);
+	public JobQueueBuilder withMaxAmountOfThreads(int amountOfThreads) {
+		queueOptionsBuilder.withMaxAmountOfThreads(amountOfThreads);
 		return this;
 	}
 
@@ -57,6 +46,11 @@ public class JobQueueBuilder {
 
 	public JobQueueBuilder withDebugMode(boolean enable) {
 		queueOptionsBuilder.withDebugMode(enable);
+		return this;
+	}
+
+	public JobQueueBuilder withCachedThreadPool(boolean useCache) {
+		queueOptionsBuilder.withCachedThreadPool(useCache);
 		return this;
 	}
 
