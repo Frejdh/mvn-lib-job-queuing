@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @RunWith(Theories.class) // To run multiple DAO configurations with the same tests
-public class AbstractQueueTests {
+public abstract class AbstractQueueTests {
 
 	protected final Logger LOGGER = Logger.getLogger(this.getClass().getName());
 	protected JobQueue queue;
