@@ -1,6 +1,10 @@
 Changelog
 -
 
+# 1.1.1
+- Job queue now uses a cached thread pool solution per default. This is configurable in the job queue builder.
+- Removed unused option 'max amount of parallel jobs'.
+
 # 1.1.0
 - Stoppable jobs.
 - Configurations per job-basis.

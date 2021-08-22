@@ -12,14 +12,16 @@ import java.util.List;
 @Builder(toBuilder = true, setterPrefix = "with")
 @Getter
 public class QueueOptions {
-	public static final int DEFAULT_MAX_PARALLEL_JOBS = 4;
-	public static final int DEFAULT_AMOUNT_OF_THREADS = 1;
+	public static final int DEFAULT_MAX_AMOUNT_OF_THREADS = 4;
+	public static final boolean DEFAULT_USE_CACHED_THREAD_POOL = true;
 
+	/**
+	 * Max amount of threads that can be created.
+	 * If fixed thread pool (non-cached) according to {@link #isCachedThreadPool()},
+	 * started threads will always be the maximum value.
+	 */
 	@Builder.Default
-	private int maxParallelJobs = DEFAULT_MAX_PARALLEL_JOBS;
-
-	@Builder.Default
-	private int amountOfThreads = DEFAULT_AMOUNT_OF_THREADS;
+	private int maxAmountOfThreads = DEFAULT_MAX_AMOUNT_OF_THREADS;
 
 	private String persistenceFile;
 
@@ -32,6 +34,14 @@ public class QueueOptions {
 	private JobOnError onJobError;
 
 	private boolean debugMode;
+
+	/**
+	 * Determines if the Job Queue should use a cached thread pool by default.
+	 * In other words, threads are started when needed, or reused depending on the situation.
+	 * Recommended for queue's that doesn't require all threads to be active at all times.
+	 */
+	@Builder.Default
+	private boolean cachedThreadPool = DEFAULT_USE_CACHED_THREAD_POOL;
 
 	public static QueueOptions getDefault() {
 		return QueueOptions.builder().build();

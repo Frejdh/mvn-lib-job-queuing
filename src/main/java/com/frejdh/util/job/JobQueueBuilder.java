@@ -32,7 +32,7 @@ public class JobQueueBuilder {
 
 	/**
 	 * Set the number of threads to utilize.
-	 * <strong>Default value is {@link QueueOptions#DEFAULT_AMOUNT_OF_THREADS}</strong>.
+	 * <strong>Default value is {@link QueueOptions#DEFAULT_MAX_AMOUNT_OF_THREADS}</strong>.
 	 * @return This builder reference.
 	 */
 	public JobQueueBuilder withAmountOfThreads(int amountOfThreads) {

@@ -12,8 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -38,11 +40,23 @@ public class JobQueue {
 	}
 
 	JobQueue(QueueOptions options, List<Job> jobs) {
-		this.pool = (ThreadPoolExecutor) Executors.newFixedThreadPool(options.getAmountOfThreads());
+		this.pool = (ThreadPoolExecutor) createThreadPool();
 		this.options = options;
 		if (jobs != null) {
 			jobs.forEach(this::add);
 		}
+	}
+
+	private ExecutorService createThreadPool() {
+		if (options.isCachedThreadPool()) {
+			return new ThreadPoolExecutor(
+					0,
+					options.getMaxAmountOfThreads(),
+					30L, TimeUnit.SECONDS,
+					new SynchronousQueue<>()
+			);
+		}
+		return Executors.newFixedThreadPool(options.getMaxAmountOfThreads());
 	}
 
 	public static JobQueueBuilder getBuilder() {
@@ -178,7 +192,8 @@ public class JobQueue {
 		if (jobTimeout != 0) {
 			try {
 				daoService.getCurrentJobFuturesByJobId(job.getJobId()).get(jobTimeout, TimeUnit.MILLISECONDS);
-			} catch (InterruptedException | ExecutionException | TimeoutException ignored) { }
+			} catch (InterruptedException | ExecutionException | TimeoutException ignored) {
+			}
 		}
 		job.start();
 		runScheduler(true);

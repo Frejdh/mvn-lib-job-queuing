@@ -8,7 +8,7 @@ A job queue with optional resource locking.
     <dependency>
         <groupId>com.frejdh.util</groupId>
         <artifactId>job-queuing</artifactId>
-        <version>1.0.0</version>
+        <version>1.1.1</version>
     </dependency>
 </dependencies>
 
