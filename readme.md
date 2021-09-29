@@ -21,7 +21,7 @@ A job queue with optional resource locking.
 ```
 
 ### Usage
-Some examples
+Some examples.
 
 #### Starting Job Queue in background
 ````java
