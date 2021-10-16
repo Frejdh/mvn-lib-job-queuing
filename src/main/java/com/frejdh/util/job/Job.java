@@ -8,7 +8,9 @@ import com.frejdh.util.job.model.callables.JobOnError;
 import com.frejdh.util.job.model.callables.JobOnFinalize;
 import com.frejdh.util.job.model.callables.JobOnStatusChange;
 import lombok.Builder;
+import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
+import java.util.Objects;
 
 
 @SuppressWarnings("FieldMayBeFinal")
@@ -133,16 +135,24 @@ public class Job {
 		return addedTimestamp;
 	}
 
-	void setOnJobStatusChange(JobOnStatusChange onStatusChange) {
-		this.jobFunction.setOnStatusChange(onStatusChange);
+	public void appendOnJobCallback(@NonNull JobOnCallback onCallback) {
+		jobFunction.addOnCallback(onCallback);
 	}
 
-	JobOnError getOnJobError() {
-		return this.jobFunction.getJobOnError();
+	void prependOnJobError(@NonNull JobOnError onError) {
+		jobFunction.addOnJobError(onError, true);
 	}
 
-	void setOnJobError(JobOnError onError) {
-		this.jobFunction.setOnError(onError);
+	public void appendOnJobError(@NonNull JobOnError onError) {
+		jobFunction.addOnJobError(onError, false);
+	}
+
+	public void appendOnJobFinalize(@NonNull JobOnFinalize onFinalize) {
+		jobFunction.addOnJobFinalize(onFinalize);
+	}
+
+	public void appendOnJobStatusChange(@NonNull JobOnStatusChange onStatusChange) {
+		jobFunction.addOnStatusChange(onStatusChange);
 	}
 
 	public boolean hasStartedAlready() {
@@ -166,22 +176,22 @@ public class Job {
 		}
 
 		public JobBuilder onCallback(JobOnCallback onCallback) {
-			jobFunction.setOnCallback(onCallback);
+			jobFunction.addOnCallback(onCallback);
 			return this;
 		}
 
 		public JobBuilder onError(JobOnError onError) {
-			jobFunction.setOnError(onError);
+			jobFunction.addOnJobError(onError, false);
 			return this;
 		}
 
 		public JobBuilder onFinalize(JobOnFinalize onFinalize) {
-			jobFunction.setOnFinalize(onFinalize);
+			jobFunction.addOnJobFinalize(onFinalize);
 			return this;
 		}
 
 		public JobBuilder onStatusChange(JobOnStatusChange onStatusChange) {
-			jobFunction.setOnStatusChange(onStatusChange);
+			jobFunction.addOnStatusChange(onStatusChange);
 			return this;
 		}
 

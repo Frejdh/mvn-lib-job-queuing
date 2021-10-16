@@ -1,23 +1,14 @@
 package com.frejdh.util.job.tests;
 
 import com.frejdh.util.job.Job;
-import com.frejdh.util.job.JobQueue;
 import com.frejdh.util.job.JobQueueBuilder;
 import com.frejdh.util.job.model.JobStatus;
-import com.frejdh.util.job.persistence.config.DaoPersistenceMode;
 import org.junit.Assert;
-import org.junit.experimental.theories.DataPoints;
-import org.junit.experimental.theories.Theories;
 import org.junit.experimental.theories.Theory;
-import org.junit.runner.RunWith;
-
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 
 public class JobQueueTests extends AbstractQueueTests {
@@ -28,9 +19,22 @@ public class JobQueueTests extends AbstractQueueTests {
 	 * @return A JobQueueBuilder instance
 	 */
 	private static JobQueueBuilder defaultJobQueue() {
-		return new JobQueueBuilder()
-				.withDebugMode(true)
-				.withOnErrorHandler(Throwable::printStackTrace);
+		return defaultJobQueue(true);
+	}
+
+	/**
+	 * Default queue builder with error handling. Don't use if errors are expected.
+	 *
+	 * @return A JobQueueBuilder instance
+	 */
+	private static JobQueueBuilder defaultJobQueue(boolean withErrorHandler) {
+		JobQueueBuilder queueBuilder = new JobQueueBuilder()
+				.withDebugMode(true);
+		if (withErrorHandler) {
+			queueBuilder.withOnErrorHandler((jobReference, throwable) -> throwable.printStackTrace());
+		}
+
+		return queueBuilder;
 	}
 
 	@Theory
@@ -96,12 +100,12 @@ public class JobQueueTests extends AbstractQueueTests {
 				.withAction(() -> {
 					throw new NullPointerException("test");
 				})
-				.onError((throwable) -> {
-					LOGGER.info("Caught exception successfully!");
+				.onError((jobReference, throwable) -> {
+					LOGGER.info("Caught exception successfully for job " + jobReference.getJobId());
 				})
 				.build();
 
-		queue = defaultJobQueue()
+		queue = defaultJobQueue(false)
 				.runOnceOnly()
 				.withPredefinedJobs(Collections.singletonList(job))
 				.buildAndStart();
@@ -109,6 +113,40 @@ public class JobQueueTests extends AbstractQueueTests {
 		Assert.assertTrue(job.hasThrowable());
 		Assert.assertEquals(NullPointerException.class, job.getThrowable().getClass());
 		Assert.assertEquals(job.getThrowable().getMessage(), "test");
+	}
+
+	@Theory
+	public void canAddExceptionHandlingAfterJobIsCreated() {
+		AtomicInteger fieldToChange = new AtomicInteger(0);
+
+		final Job job = Job.builder()
+				.withAction(() -> {
+					throw new IllegalStateException("test");
+				})
+				.onError(((jobRef, throwable) -> {
+					LOGGER.info("Caught exception successfully for job " + jobRef.getJobId());
+					Assert.assertEquals("Expected the job's first defined on error to be executed", 1, fieldToChange.getAndIncrement());
+				}))
+				.onFinalize(jobRef -> {
+					Assert.assertEquals("Expected all error callbacks to be called before this onFinalize", 3, fieldToChange.getAndIncrement());
+				})
+				.build();
+
+		job.appendOnJobError((jobRef, throwable) -> {
+			Assert.assertEquals("Expected the later added onJobError to be executed last", 2, fieldToChange.getAndIncrement());
+		});
+
+		queue = defaultJobQueue(false)
+				.runOnceOnly()
+				.withPredefinedJobs(Collections.singletonList(job))
+				.withOnErrorHandler((jobRef, throwable) -> {
+					Assert.assertEquals("Expected queue global error handler to be executed first", 0, fieldToChange.getAndIncrement());
+				})
+				.buildAndStart();
+		queue.stopAndAwait(1, TimeUnit.SECONDS);
+		Assert.assertEquals(IllegalStateException.class, job.getThrowable().getClass());
+		Assert.assertEquals(job.getThrowable().getMessage(), "test");
+		Assert.assertEquals(4, fieldToChange.get());
 	}
 
 }

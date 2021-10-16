@@ -9,10 +9,11 @@ import com.frejdh.util.job.model.callables.JobOnFinalize;
 import com.frejdh.util.job.model.callables.JobOnStatusChange;
 import lombok.Builder;
 import lombok.NonNull;
+import lombok.Singular;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.time.Instant;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Model class for the job operation and it's properties.
@@ -22,10 +23,10 @@ public class JobFunction {
 	private Job job;
 
 	@NonNull private JobAction action;
-	private JobOnCallback onJobCallback;
-	private JobOnError onJobError;
-	private JobOnFinalize onJobFinalize;
-	private JobOnStatusChange onStatusChange;
+	private List<JobOnCallback> onJobCallbacks;
+	private List<JobOnError> onJobErrors;
+	private List<JobOnFinalize> onJobFinalizes;
+	private List<JobOnStatusChange> onStatusChanges;
 	private JobStatus status;
 	private Long startTime;
 	private Long stopTime;
@@ -36,30 +37,15 @@ public class JobFunction {
 	 */
 	@Builder
 	protected JobFunction(@NonNull JobAction action,
-						  JobOnCallback onJobCallback,
-						  JobOnError onJobError,
-						  JobOnFinalize onJobFinalize,
-						  JobOnStatusChange onStatusChange) {
+						  @Singular List<JobOnCallback> onJobCallbacks,
+						  @Singular List<JobOnError> onJobErrors,
+						  @Singular List<JobOnFinalize> onJobFinalizes,
+						  @Singular List<JobOnStatusChange> onStatusChanges) {
 		this.action = action;
-		this.onJobCallback = onJobCallback;
-		this.onJobError = onJobError;
-		this.onJobFinalize = onJobFinalize;
-		this.onStatusChange = onStatusChange;
-	}
-
-	public JobFunction(@NonNull JobAction action) {
-		this.action = action;
-		this.status = JobStatus.INITIALIZED;
-	}
-
-	public JobFunction(@NonNull JobAction action,
-					   @Nullable JobOnCallback onSuccess,
-					   @Nullable JobOnError onError,
-					   @Nullable JobOnFinalize onComplete) {
-		this(action);
-		this.onJobCallback = onSuccess;
-		this.onJobError = onError;
-		this.onJobFinalize = onComplete;
+		this.onJobCallbacks = new LinkedList<>(onJobCallbacks);
+		this.onJobErrors = new LinkedList<>(onJobErrors);
+		this.onJobFinalizes = new LinkedList<>(onJobFinalizes);
+		this.onStatusChanges = new LinkedList<>(onStatusChanges);
 	}
 
 	public JobFunction setJob(Job job) {
@@ -70,8 +56,8 @@ public class JobFunction {
 	public void setStatus(JobStatus status) {
 		final boolean isStatusChanged = this.status == null || !this.status.equals(status);
 		this.status = status;
-		if (onStatusChange != null && isStatusChanged) {
-			onStatusChange.onStatusChange();
+		if (onStatusChanges != null && isStatusChanged) {
+			onStatusChanges.forEach(onStatusChange -> onStatusChange.onStatusChange(job));
 		}
 	}
 
@@ -79,24 +65,33 @@ public class JobFunction {
 		this.action = jobAction;
 	}
 
-	public void setOnCallback(JobOnCallback jobCallback) {
-		this.onJobCallback = jobCallback;
+	public List<JobOnCallback> getOnJobCallbacks() {
+		return onJobCallbacks;
 	}
 
-	public void setOnError(JobOnError jobError) {
-		this.onJobError = jobError;
+	public void addOnCallback(@NotNull JobOnCallback jobCallback) {
+		this.onJobCallbacks.add(jobCallback);
 	}
 
-	public void setOnFinalize(JobOnFinalize jobFinalize) {
-		this.onJobFinalize = jobFinalize;
+	public void addOnJobError(@NotNull JobOnError jobError, boolean prepend) {
+		if (prepend) {
+			this.onJobErrors.add(0, jobError);
+		}
+		else {
+			this.onJobErrors.add(jobError);
+		}
 	}
 
-	public void setOnStatusChange(JobOnStatusChange onStatusChange) {
-		this.onStatusChange = onStatusChange;
+	public void addOnJobFinalize(@NotNull JobOnFinalize jobFinalize) {
+		this.onJobFinalizes.add(jobFinalize);
 	}
 
-	public JobOnError getJobOnError() {
-		return this.onJobError;
+	public void addOnStatusChange(@NotNull JobOnStatusChange onStatusChange) {
+		this.onStatusChanges.add(onStatusChange);
+	}
+
+	public List<JobOnError> getOnJobErrors() {
+		return this.onJobErrors;
 	}
 
 	public Job getJob() {
@@ -129,23 +124,23 @@ public class JobFunction {
 				setStatus(JobStatus.RUNNING_ACTION);
 				action.action();
 
-				if (onJobCallback != null) {
+				if (onJobCallbacks != null) {
 					setStatus(JobStatus.RUNNING_CALLBACK);
-					onJobCallback.callback(job);
+					onJobCallbacks.forEach(callback -> callback.callback(job));
 				}
 
 				setStatus(JobStatus.FINISHED);
 			} catch (Throwable throwable) {
 				setStatus(JobStatus.FAILED);
 				this.throwable = throwable;
-				if (onJobError != null) {
-					onJobError.onError(throwable);
+				if (onJobErrors != null) {
+					onJobErrors.forEach(onError -> onError.onError(job, throwable));
 				}
 			} finally {
 				stopTime = Instant.now().toEpochMilli();
-				if (onJobFinalize != null) {
+				if (onJobFinalizes != null) {
 					try {
-						onJobFinalize.onComplete();
+						onJobFinalizes.forEach(onFinalize -> onFinalize.onComplete(job));
 					} catch (Exception e) {
 						e.printStackTrace();
 					}

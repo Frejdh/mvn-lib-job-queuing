@@ -2,7 +2,6 @@ package com.frejdh.util.job;
 
 import com.frejdh.util.job.model.JobStatus;
 import com.frejdh.util.job.model.QueueOptions;
-import com.frejdh.util.job.model.callables.JobOnError;
 import com.frejdh.util.job.persistence.DaoService;
 import com.frejdh.util.job.state.LocalJobWorkerThreadState;
 import com.frejdh.util.job.util.JobQueueLogger;
@@ -95,9 +94,9 @@ public class JobQueue {
 
 	public void add(Job job) {
 		if (job != null) {
-			setOnErrorForJob(job);
+			setGlobalOnErrorForJob(job);
 			setJobStatus(job, JobStatus.INITIALIZED);
-			job.setOnJobStatusChange(() -> {
+			job.appendOnJobStatusChange((jobReference) -> {
 				if (options.isDebugMode()) {
 					LOGGER.info(String.format("Job with ID: [%s] was updated to the new status [%s]", job.getJobId(), job.getStatus()));
 				}
@@ -108,17 +107,9 @@ public class JobQueue {
 		}
 	}
 
-	private void setOnErrorForJob(Job job) {
+	private void setGlobalOnErrorForJob(Job job) {
 		if (options.getOnJobError() != null) {
-			final JobOnError currentOnError = job.getOnJobError();
-			final JobOnError newOnError = (error) -> {
-				options.getOnJobError().onError(error);
-				if (currentOnError != null) {
-					currentOnError.onError(error);
-				}
-			};
-
-			job.setOnJobError(newOnError);
+			job.prependOnJobError(options.getOnJobError());
 		}
 	}
 

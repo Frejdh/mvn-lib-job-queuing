@@ -1,5 +1,11 @@
 Changelog
 -
+On a version basis.
+
+# 1.2.0
+- Multiple callbacks support for `onCallback, onError, onFinalize & onStatusChange`.
+  These can now also be added to already created jobs for easier post-creation handling.
+- Refactored and removed old code.
 
 # 1.1.1
 - Job queue now uses a cached thread pool solution per default. This is configurable in the job queue builder.
