@@ -149,4 +149,24 @@ public class JobQueueTests extends AbstractQueueTests {
 		Assert.assertEquals(4, fieldToChange.get());
 	}
 
+	@Theory
+	public void canSetCustomJobIds() {
+		final long jobId = 99;
+		final Job job = Job.builder()
+				.withJobId(jobId)
+				.withAction(() -> { })
+				.build();
+
+		queue = defaultJobQueue(false)
+				.runOnceOnly()
+				.withPredefinedJobs(Collections.singletonList(job))
+				.buildAndStart();
+		queue.stopAndAwait(1000, TimeUnit.SECONDS);
+
+		Job fetchedJob = queue.getJobById(jobId);
+		Assert.assertEquals(job, fetchedJob);
+		Assert.assertEquals(job.getJobId(), jobId);
+	}
+
+
 }

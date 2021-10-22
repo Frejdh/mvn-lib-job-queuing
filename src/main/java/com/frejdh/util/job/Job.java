@@ -37,7 +37,8 @@ public class Job {
 	protected String description;
 
 	@Builder(setterPrefix = "with")
-	public Job(@NotNull JobFunction jobFunction, String resourceKey, JobOptions jobOptions, String description) {
+	public Job(@NotNull JobFunction jobFunction, long jobId, String resourceKey, JobOptions jobOptions, String description) {
+		this.jobId = jobId;
 		this.jobFunction = jobFunction;
 		this.resourceKey = resourceKey;
 		this.jobOptions = jobOptions != null ? jobOptions : JobOptions.builder().build();
@@ -159,11 +160,21 @@ public class Job {
 		return jobFunction.hasStartedAlready();
 	}
 
+	@SuppressWarnings("FieldCanBeLocal")
 	public static class JobBuilder {
 		private static final JobAction ACTION_PLACEHOLDER = () -> {};
+		private long jobId = UNASSIGNED_VALUE;
 		private JobFunction jobFunction = JobFunction.builder()
 				.action(ACTION_PLACEHOLDER)
 				.build();
+
+		/**
+		 * OPTIONAL. Only set if you intend to keep track of the job IDs by yourself.
+		 */
+		public JobBuilder withJobId(long jobId) {
+			this.jobId = jobId;
+			return this;
+		}
 
 		public JobBuilder withStatus(JobStatus status) {
 			jobFunction.setStatus(status);

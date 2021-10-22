@@ -1,6 +1,9 @@
 Changelog
 -
-On a version basis.
+For every released version.
+
+# 1.2.1
+- Added the ability to set custom job IDs in case these should be tracked outside the queue implementation.
 
 # 1.2.0
 - Multiple callbacks support for `onCallback, onError, onFinalize & onStatusChange`.

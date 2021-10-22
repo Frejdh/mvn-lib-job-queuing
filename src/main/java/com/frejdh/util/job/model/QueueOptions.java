@@ -19,6 +19,7 @@ public class QueueOptions {
 	 * Max amount of threads that can be created.
 	 * If fixed thread pool (non-cached) according to {@link #isCachedThreadPool()},
 	 * started threads will always be the maximum value.
+	 * Default value is: {@link #DEFAULT_MAX_AMOUNT_OF_THREADS}
 	 */
 	@Builder.Default
 	private int maxAmountOfThreads = DEFAULT_MAX_AMOUNT_OF_THREADS;
@@ -39,6 +40,7 @@ public class QueueOptions {
 	 * Determines if the Job Queue should use a cached thread pool by default.
 	 * In other words, threads are started when needed, or reused depending on the situation.
 	 * Recommended for queue's that doesn't require all threads to be active at all times.
+	 * Default value is: {@link #DEFAULT_USE_CACHED_THREAD_POOL}
 	 */
 	@Builder.Default
 	private boolean cachedThreadPool = DEFAULT_USE_CACHED_THREAD_POOL;
