@@ -1,0 +1,6 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Thu Dec 30 13:50:49 CET 2021
+job-queuing-1.2.2-sources.jar>=
+job-queuing-1.2.2.jar>=
+job-queuing-1.2.2-javadoc.jar>=
+job-queuing-1.2.2.pom>=
