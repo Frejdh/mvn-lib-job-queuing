@@ -10,7 +10,6 @@ import com.frejdh.util.job.model.callables.JobOnStatusChange;
 import lombok.Builder;
 import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
-import java.util.Objects;
 
 
 @SuppressWarnings("FieldMayBeFinal")

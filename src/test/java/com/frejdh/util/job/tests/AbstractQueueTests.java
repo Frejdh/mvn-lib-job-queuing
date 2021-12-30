@@ -1,6 +1,5 @@
 package com.frejdh.util.job.tests;
 
-import com.frejdh.util.common.toolbox.CommonUtils;
 import com.frejdh.util.common.toolbox.ReflectionUtils;
 import com.frejdh.util.job.JobQueue;
 import com.frejdh.util.job.persistence.DaoService;
@@ -32,7 +31,7 @@ public abstract class AbstractQueueTests {
 	}
 
 	@SneakyThrows
-	protected DaoService getDaoService() {
+	protected DaoService getDaoService() {	// TODO: Improve this logic, this doesn't work on JDK 17
 		Assert.assertNotNull("'queue' object cannot be null when fetching the DAO service", queue);
 		return ReflectionUtils.getVariable(queue, "daoService", DaoService.class);
 	}

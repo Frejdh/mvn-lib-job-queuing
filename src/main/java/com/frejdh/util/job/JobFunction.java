@@ -131,11 +131,16 @@ public class JobFunction {
 
 				setStatus(JobStatus.FINISHED);
 			} catch (Throwable throwable) {
-				setStatus(JobStatus.FAILED);
 				this.throwable = throwable;
-				if (onJobErrors != null) {
-					onJobErrors.forEach(onError -> onError.onError(job, throwable));
+				setStatus(JobStatus.FAILED);
+				try {
+					if (onJobErrors != null) {
+						onJobErrors.forEach(onError -> onError.onError(job, throwable));
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
+
 			} finally {
 				stopTime = Instant.now().toEpochMilli();
 				if (onJobFinalizes != null) {
