@@ -1,8 +1,9 @@
 package com.frejdh.util.job.model;
 
 public enum JobStatus {
+	CREATED,	// Default value
+	WAITING_FOR_ID,
 	INITIALIZED,
-	ADDED_TO_QUEUE,
 	WAITING_FOR_RESOURCE,
 	RUNNING_ACTION,
 	RUNNING_CALLBACK,
@@ -11,14 +12,22 @@ public enum JobStatus {
 	CANCELED;
 
 	public boolean isPending() {
+		return this.equals(WAITING_FOR_ID)
+			|| isPendingAndReady();
+	}
+
+	public boolean isPendingAndReady() {
 		return this.equals(INITIALIZED)
-			|| this.equals(ADDED_TO_QUEUE)
 			|| this.equals(WAITING_FOR_RESOURCE);
+	}
+
+	public boolean isWaitingForId() {
+		return this.equals(WAITING_FOR_ID);
 	}
 
 	public boolean isRunning() {
 		return this.equals(RUNNING_ACTION)
-				|| this.equals(RUNNING_CALLBACK);
+			|| this.equals(RUNNING_CALLBACK);
 	}
 
 	public boolean isDone() {

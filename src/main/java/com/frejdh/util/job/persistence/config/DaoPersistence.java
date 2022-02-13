@@ -1,6 +1,6 @@
 package com.frejdh.util.job.persistence.config;
 
-import com.frejdh.util.job.persistence.AbstractDaoServiceImpl;
+import com.frejdh.util.job.persistence.AbstractJobQueueDao;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 
@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 public class DaoPersistence {
 
 	private final DaoPersistenceMode mode;
-	private final Class<? extends AbstractDaoServiceImpl> implementationClass;
+	private final Class<? extends AbstractJobQueueDao> implementationClass;
 
 	public DaoPersistence(@NotNull DaoPersistenceMode mode) {
 		if (mode == DaoPersistenceMode.CUSTOM) {
@@ -20,7 +20,7 @@ public class DaoPersistence {
 		this.implementationClass = mode.getImplementationClass();
 	}
 
-	public DaoPersistence(@NotNull Class<? extends AbstractDaoServiceImpl> implementationClass) {
+	public DaoPersistence(@NotNull Class<? extends AbstractJobQueueDao> implementationClass) {
 		this.mode = DaoPersistenceMode.CUSTOM;
 		this.implementationClass = implementationClass;
 	}

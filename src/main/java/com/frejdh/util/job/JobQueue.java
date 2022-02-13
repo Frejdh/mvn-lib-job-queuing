@@ -2,21 +2,14 @@ package com.frejdh.util.job;
 
 import com.frejdh.util.job.model.JobStatus;
 import com.frejdh.util.job.model.QueueOptions;
-import com.frejdh.util.job.persistence.DaoService;
+import com.frejdh.util.job.persistence.JobQueueService;
 import com.frejdh.util.job.state.LocalJobWorkerThreadState;
 import com.frejdh.util.job.util.JobQueueLogger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.logging.Logger;
 
 public class JobQueue {
@@ -25,18 +18,11 @@ public class JobQueue {
 	protected ThreadPoolExecutor pool;
 	protected static ThreadLocal<LocalJobWorkerThreadState> threadState = new ThreadLocal<>();
 	protected volatile QueueOptions options;
-	protected volatile DaoService daoService = new DaoService();
+	protected volatile JobQueueService daoService;
 	protected final Map<Long, Future<?>> currentJobFuturesByJobId = new HashMap<>();
 
-	JobQueue() {
-		this(QueueOptions.getDefault());
-	}
-
-	JobQueue(QueueOptions options) {
-		this(options, null);
-	}
-
-	JobQueue(QueueOptions options, List<Job> jobs) {
+	JobQueue(JobQueueService daoService, QueueOptions options, List<Job> jobs) {
+		this.daoService = daoService;
 		this.pool = (ThreadPoolExecutor) createThreadPool(options);
 		this.options = options;
 		if (jobs != null) {
@@ -95,16 +81,30 @@ public class JobQueue {
 	public void add(Job job) {
 		if (job != null) {
 			setGlobalOnErrorForJob(job);
-			setJobStatus(job, JobStatus.INITIALIZED);
 			job.appendOnJobStatusChange((jobReference) -> {
 				if (options.isDebugMode()) {
 					LOGGER.info(String.format("Job with ID: [%s] was updated to the new status [%s]", job.getJobId(), job.getStatus()));
 				}
 				daoService.updateJob(job);
 			});
-			daoService.addToPendingJobs(job);
-			runScheduler(false);
+
+			if (job.getStatus().isWaitingForId()) {
+				job.setOnJobIdSetCallback(this::initializeJobAndAddToPending);
+			}
+			else {
+				initializeJobAndAddToPending(job);
+			}
+
 		}
+	}
+
+	/**
+	 * Helper method.
+	 */
+	private void initializeJobAndAddToPending(Job job) {
+		setJobStatus(job, JobStatus.INITIALIZED);
+		daoService.addToPendingJobs(job);
+		runScheduler(false);
 	}
 
 	private void setGlobalOnErrorForJob(Job job) {
@@ -145,32 +145,35 @@ public class JobQueue {
 		return stop(job);
 	}
 
-	private boolean addToCurrentJobs(Job job) {
-		Job retval = daoService.updateJobOnlyOnFreeResource(job);
-		boolean wasAdded = retval != null;
-		if (wasAdded) {
-			setJobStatus(retval, JobStatus.ADDED_TO_QUEUE);
-			return true;
-		}
-		return false;
-	}
-
 	void runScheduler(boolean isRunningOnWorkerThread) {
 		List<Job> jobsToCheck = new ArrayList<>(daoService.getPendingJobs().values());
 		for (Job job : jobsToCheck) {
+			if (!jobIsReadyToBeStarted(job)) {
+				continue;
+			}
+
 			if (daoService.addToCurrentJobs(job)) {
-				if (!isRunningOnWorkerThread) {
-					Future<?> future = pool.submit(() -> executeJob(job));
-					daoService.setCurrentJobFuturesByJobId(job.getJobId(), future);
-				}
-				else {
-					executeJob(job);
+				try {
+					if (!isRunningOnWorkerThread) {
+						Future<?> future = pool.submit(() -> executeJob(job));
+						daoService.setCurrentJobFuturesByJobId(job.getJobId(), future);
+					} else {
+						executeJob(job);
+					}
+				} catch (RejectedExecutionException e) {
+					LOGGER.warning("Job queue thread pool stopped, or full [is running: " + !pool.isShutdown() +
+							", current size: " + pool.getPoolSize() + ", max size: " + pool.getMaximumPoolSize() + "]");
+					break;
 				}
 			}
 			else {
 				setJobStatus(job, JobStatus.WAITING_FOR_RESOURCE);
 			}
 		}
+	}
+
+	private boolean jobIsReadyToBeStarted(Job job) {
+		return job.getStatus().isPendingAndReady();
 	}
 
 	/**
@@ -237,6 +240,10 @@ public class JobQueue {
 
 	public List<Job> getFinishedJobsByResource(String resource) {
 		return daoService.getFinishedJobsByResource(resource);
+	}
+
+	public List<Job> getAllJobs() {
+		return daoService.getAllJobs();
 	}
 
 }

@@ -1,23 +1,23 @@
 package com.frejdh.util.job.persistence;
 
-import com.frejdh.util.job.persistence.impl.h2.H2DaoService;
-import com.frejdh.util.job.persistence.impl.memory.RuntimeDaoService;
+import com.frejdh.util.job.persistence.impl.h2.H2JobQueueDao;
+import com.frejdh.util.job.persistence.impl.memory.RuntimeJobQueueDao;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
 enum PredefinedDaoImplementation {
-	H2(H2DaoService.class, "h2"), MEMORY(RuntimeDaoService.class, "in-memory", "memory", "internal", "runtime");
+	H2(H2JobQueueDao.class, "h2"), MEMORY(RuntimeJobQueueDao.class, "in-memory", "memory", "internal", "runtime");
 
-	private final Class<? extends AbstractDaoServiceImpl> implementationClass;
+	private final Class<? extends AbstractJobQueueDao> implementationClass;
 	private final List<String> caseInsensitiveArgs;
 
-	PredefinedDaoImplementation(Class<? extends AbstractDaoServiceImpl> implementation, String... caseInsensitiveArgs) {
+	PredefinedDaoImplementation(Class<? extends AbstractJobQueueDao> implementation, String... caseInsensitiveArgs) {
 		this.implementationClass = implementation;
 		this.caseInsensitiveArgs = Arrays.asList(caseInsensitiveArgs);
 	}
 
-	public Class<? extends AbstractDaoServiceImpl> getImplementationClass() {
+	public Class<? extends AbstractJobQueueDao> getImplementationClass() {
 		return implementationClass;
 	}
 
@@ -35,7 +35,7 @@ enum PredefinedDaoImplementation {
 				.findFirst().orElse(null);
 	}
 
-	public static Class<? extends AbstractDaoServiceImpl> toImplementationClass(String arg) {
+	public static Class<? extends AbstractJobQueueDao> toImplementationClass(String arg) {
 		PredefinedDaoImplementation foundEnum = toEnum(arg);
 		return foundEnum != null ? foundEnum.implementationClass : null;
 	}

@@ -2,15 +2,14 @@ package com.frejdh.util.job.persistence.impl.memory;
 
 import com.frejdh.util.job.Job;
 import com.frejdh.util.job.model.JobStatus;
-import com.frejdh.util.job.persistence.AbstractDaoServiceImpl;
+import com.frejdh.util.job.persistence.AbstractJobQueueDao;
 import org.jetbrains.annotations.NotNull;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-public class RuntimeDaoService extends AbstractDaoServiceImpl {
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class RuntimeJobQueueDao extends AbstractJobQueueDao {
 
 	protected final Map<Long, Job> pendingJobs = new LinkedHashMap<>();
 	protected final Map<Long, Job> currentJobsById = new LinkedHashMap<>();
@@ -59,6 +58,10 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 	}
 
 	public boolean addToPendingJobs(Job job) {
+		if (job.getStatus().isWaitingForId()) {
+			return false;
+		}
+
 		synchronized (pendingJobs) {
 			if (!job.hasJobId()) {
 				setJobId(job, lastJobId.getAndIncrement());
@@ -110,6 +113,13 @@ public class RuntimeDaoService extends AbstractDaoServiceImpl {
 	@Override
 	public Map<Long, Job> getFinishedJobs() {
 		return finishedJobs;
+	}
+
+	@Override
+	public List<Job> getAllJobs() {
+		return Stream.of(pendingJobs.values(), currentJobsById.values(), finishedJobs.values())
+				.flatMap(Collection::stream)
+				.collect(Collectors.toList());
 	}
 
 	@Override

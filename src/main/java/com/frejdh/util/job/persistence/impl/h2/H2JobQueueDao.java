@@ -1,12 +1,12 @@
 package com.frejdh.util.job.persistence.impl.h2;
 
 import com.frejdh.util.job.Job;
-import com.frejdh.util.job.persistence.AbstractDaoServiceImpl;
+import com.frejdh.util.job.persistence.AbstractJobQueueDao;
 import org.jetbrains.annotations.NotNull;
 import java.util.List;
 import java.util.Map;
 
-public class H2DaoService extends AbstractDaoServiceImpl {
+public class H2JobQueueDao extends AbstractJobQueueDao {
 
 	@Override
 	public boolean addToPendingJobs(Job job) {
@@ -107,6 +107,11 @@ public class H2DaoService extends AbstractDaoServiceImpl {
 
 	@Override
 	public Map<Long, Job> getFinishedJobs() {
+		return null;
+	}
+
+	@Override
+	public List<Job> getAllJobs() {
 		return null;
 	}
 }

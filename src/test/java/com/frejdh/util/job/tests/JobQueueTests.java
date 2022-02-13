@@ -29,7 +29,8 @@ public class JobQueueTests extends AbstractQueueTests {
 	 */
 	private static JobQueueBuilder defaultJobQueue(boolean withErrorHandler) {
 		JobQueueBuilder queueBuilder = new JobQueueBuilder()
-				.withDebugMode(true);
+				.withDebugMode(true)
+				.withCustomDaoService(getJobQueueService());
 		if (withErrorHandler) {
 			queueBuilder.withOnErrorHandler((jobReference, throwable) -> throwable.printStackTrace());
 		}
@@ -43,7 +44,7 @@ public class JobQueueTests extends AbstractQueueTests {
 		int valueToChangeTo = 10;
 
 		List<Job> jobs = Collections.singletonList(Job.builder()
-				.withAction(() -> fieldToChange.set(valueToChangeTo))
+				.withAction((jobRef) -> fieldToChange.set(valueToChangeTo))
 				.withResourceKey("doSimpleAction")
 				.build());
 
@@ -62,14 +63,14 @@ public class JobQueueTests extends AbstractQueueTests {
 		AtomicInteger fieldToChange = new AtomicInteger(originalValue);
 
 		Job jobLockResource = Job.builder()
-				.withAction(() -> {
+				.withAction((jobRef) -> {
 					Thread.sleep(600);
 					fieldToChange.set(valueToChangeToFirst);
 				})
 				.withResourceKey(resourceKey)
 				.build();
 		Job jobWaitForResource = Job.builder()
-				.withAction(() -> {
+				.withAction((jobRef) -> {
 					Assert.assertEquals("Expected value to be changed before this: " + valueToChangeToFirst, valueToChangeToFirst, fieldToChange.get());
 					fieldToChange.set(valueToChangeToLater);
 				})
@@ -89,15 +90,15 @@ public class JobQueueTests extends AbstractQueueTests {
 		Assert.assertEquals("Expected value to be finished with: " + valueToChangeToLater, valueToChangeToLater, fieldToChange.get());
 		Assert.assertFalse("Expected no exceptions", jobWaitForResource.hasThrowable());
 
-		Assert.assertEquals(0, getDaoService().getPendingJobs().size());
-		Assert.assertEquals(0, getDaoService().getCurrentJobs().size());
-		Assert.assertEquals(2, getDaoService().getFinishedJobs().size());
+		Assert.assertEquals(0, getJobQueueService().getPendingJobs().size());
+		Assert.assertEquals(0, getJobQueueService().getCurrentJobs().size());
+		Assert.assertEquals(2, getJobQueueService().getFinishedJobs().size());
 	}
 
 	@Theory
 	public void canCatchExceptions() {
 		final Job job = Job.builder()
-				.withAction(() -> {
+				.withAction((jobRef) -> {
 					throw new NullPointerException("test");
 				})
 				.onError((jobReference, throwable) -> {
@@ -120,7 +121,7 @@ public class JobQueueTests extends AbstractQueueTests {
 		AtomicInteger fieldToChange = new AtomicInteger(0);
 
 		final Job job = Job.builder()
-				.withAction(() -> {
+				.withAction((jobRef) -> {
 					throw new IllegalStateException("test");
 				})
 				.onError(((jobRef, throwable) -> {
@@ -154,7 +155,7 @@ public class JobQueueTests extends AbstractQueueTests {
 		final long jobId = 99;
 		final Job job = Job.builder()
 				.withJobId(jobId)
-				.withAction(() -> { })
+				.withAction((jobRef) -> { })
 				.build();
 
 		queue = defaultJobQueue(false)
@@ -168,5 +169,60 @@ public class JobQueueTests extends AbstractQueueTests {
 		Assert.assertEquals(job.getJobId(), jobId);
 	}
 
+	@Theory
+	public void canSetCustomJobIdPostCreationAndWontStartUnlessSet() {
+		final Job job = Job.builder()
+				.setJobIdAfterBuild()
+				.build();
+		Assert.assertEquals(JobStatus.WAITING_FOR_ID, job.getStatus());
+
+		queue = defaultJobQueue(false)
+				.withPredefinedJobs(Collections.singletonList(job))
+				.buildAndStart();
+		queue.stopAndAwait(1000, TimeUnit.SECONDS);
+
+		List<Job> fetchedJobs = queue.getAllJobs();
+		Assert.assertEquals(0, fetchedJobs.size());
+	}
+
+	@Theory
+	public void canSetCustomJobIdPostCreationAndIsStartingWhenSet() throws Throwable {
+		final Job job = Job.builder()
+				.setJobIdAfterBuild()
+				.build();
+
+		queue = defaultJobQueue(false)
+				.withPredefinedJobs(Collections.singletonList(job))
+				.buildAndStart();
+		Thread.sleep(100);
+
+		job.setJobId(1);
+		Thread.sleep(100);
+		queue.stopAndAwait(1000, TimeUnit.SECONDS);
+
+		List<Job> fetchedJobs = queue.getAllJobs();
+		Assert.assertEquals(1, fetchedJobs.size());
+		Assert.assertEquals(1, fetchedJobs.get(0).getJobId());
+		Assert.assertEquals(JobStatus.FINISHED, fetchedJobs.get(0).getStatus());
+	}
+
+	@Theory
+	public void jobActionCanReferToItself() {
+		final long jobId = 50;
+		final Job job = Job.builder()
+				.withJobId(jobId)
+				.withAction((jobRef) -> { })
+				.build();
+
+		queue = defaultJobQueue(false)
+				.runOnceOnly()
+				.withPredefinedJobs(Collections.singletonList(job))
+				.buildAndStart();
+		queue.stopAndAwait(1000, TimeUnit.SECONDS);
+
+		Job fetchedJob = queue.getJobById(jobId);
+		Assert.assertEquals(job, fetchedJob);
+		Assert.assertEquals(job.getJobId(), jobId);
+	}
 
 }

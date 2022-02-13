@@ -2,11 +2,13 @@ package com.frejdh.util.job.tests;
 
 import com.frejdh.util.common.toolbox.ReflectionUtils;
 import com.frejdh.util.job.JobQueue;
-import com.frejdh.util.job.persistence.DaoService;
+import com.frejdh.util.job.persistence.JobQueueService;
 import com.frejdh.util.job.persistence.config.DaoPersistenceMode;
+import com.frejdh.util.job.persistence.impl.memory.RuntimeJobQueueDao;
 import lombok.SneakyThrows;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.experimental.theories.DataPoints;
 import org.junit.experimental.theories.Theories;
 import org.junit.runner.RunWith;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public abstract class AbstractQueueTests {
 
 	protected final Logger LOGGER = Logger.getLogger(this.getClass().getName());
+	private static JobQueueService JOB_QUEUE_SERVICE;
 	protected JobQueue queue;
 
 	@DataPoints
@@ -31,9 +34,14 @@ public abstract class AbstractQueueTests {
 	}
 
 	@SneakyThrows
-	protected DaoService getDaoService() {	// TODO: Improve this logic, this doesn't work on JDK 17
-		Assert.assertNotNull("'queue' object cannot be null when fetching the DAO service", queue);
-		return ReflectionUtils.getVariable(queue, "daoService", DaoService.class);
+	protected static JobQueueService getJobQueueService() {
+		return JOB_QUEUE_SERVICE;
+	}
+
+	@Before
+	public void beforeTests() {
+		JOB_QUEUE_SERVICE = new JobQueueService(new RuntimeJobQueueDao());
+		queue = null;
 	}
 
 	@After

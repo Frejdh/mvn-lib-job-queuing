@@ -8,7 +8,7 @@ A job queue with optional resource locking.
     <dependency>
         <groupId>com.frejdh.util</groupId>
         <artifactId>job-queuing</artifactId>
-        <version>1.2.1</version>
+        <version>1.2.2</version>
     </dependency>
 </dependencies>
 
@@ -25,7 +25,7 @@ Some examples.
 
 #### Starting Job Queue in background
 ````java
-Job job = new Job(new JobFunction(() -> {
+Job job = new Job(new JobFunction((jobRef) -> {
     System.out.println("My job")
 }), "Optional resource ID, can be used to avoid concurrency issues");
 
@@ -37,7 +37,7 @@ System.out.println("Generated job ID: " + job.getJobId() + ", current job status
 
 #### Starting a Job Queue that should run only once (and await)
 ````java
-List<Job> listOfJobs = Collections.singletonList(new Job(new JobFunction(() -> System.out.println("My job"))));
+List<Job> listOfJobs = Collections.singletonList(new Job(new JobFunction((jobRef) -> System.out.println("My job"))));
 
 final JobQueue queue = new JobQueueBuilder().runOnceOnly().setPredefinedJobs(listOfJobs).buildAndStart();
 queue.stopAndAwait(2000, TimeUnit.SECONDS);  // Stop with timeout option

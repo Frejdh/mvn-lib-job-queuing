@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-public abstract class AbstractDaoServiceImpl {
+public abstract class AbstractJobQueueDao {
 
-	public AbstractDaoServiceImpl() { }
+	public AbstractJobQueueDao() { }
 
 
 	protected AtomicLong lastJobId = new AtomicLong(0);
@@ -60,6 +60,8 @@ public abstract class AbstractDaoServiceImpl {
 
 	abstract public Map<Long, Job> getFinishedJobs();
 
+	abstract public List<Job> getAllJobs();
+
 	protected boolean isPendingJob(Job job) {
 		return job != null && job.isStarted();
 	}
@@ -84,6 +86,6 @@ public abstract class AbstractDaoServiceImpl {
 
 	@SneakyThrows
 	protected void setJobId(Job job, long id) {
-		ReflectionUtils.setVariable(job, "jobId", id);
+		ReflectionUtils.invokeMethod(job, "internalSetJobId", id);
 	}
 }

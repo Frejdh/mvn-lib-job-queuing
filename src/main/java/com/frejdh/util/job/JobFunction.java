@@ -27,7 +27,7 @@ public class JobFunction {
 	private List<JobOnError> onJobErrors;
 	private List<JobOnFinalize> onJobFinalizes;
 	private List<JobOnStatusChange> onStatusChanges;
-	private JobStatus status;
+	private JobStatus status = JobStatus.CREATED;
 	private Long startTime;
 	private Long stopTime;
 	private Throwable throwable;
@@ -53,12 +53,15 @@ public class JobFunction {
 		return this;
 	}
 
-	public void setStatus(JobStatus status) {
-		final boolean isStatusChanged = this.status == null || !this.status.equals(status);
-		this.status = status;
-		if (onStatusChanges != null && isStatusChanged) {
+	public void setStatus(JobStatus newStatus) {
+		this.status = newStatus;
+		if (onStatusChanges != null) {
 			onStatusChanges.forEach(onStatusChange -> onStatusChange.onStatusChange(job));
 		}
+	}
+
+	void setStatusWithoutCallback(JobStatus newStatus) {
+		this.status = newStatus;
 	}
 
 	public void setAction(@NotNull JobAction jobAction) {
@@ -122,7 +125,7 @@ public class JobFunction {
 			this.startTime = Instant.now().toEpochMilli();
 			try {
 				setStatus(JobStatus.RUNNING_ACTION);
-				action.action();
+				action.action(job);
 
 				if (onJobCallbacks != null) {
 					setStatus(JobStatus.RUNNING_CALLBACK);

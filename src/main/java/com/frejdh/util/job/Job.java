@@ -1,12 +1,9 @@
 package com.frejdh.util.job;
 
+import com.frejdh.util.job.exceptions.InvalidJobStatusForNewJobIdException;
 import com.frejdh.util.job.model.JobOptions;
 import com.frejdh.util.job.model.JobStatus;
-import com.frejdh.util.job.model.callables.JobAction;
-import com.frejdh.util.job.model.callables.JobOnCallback;
-import com.frejdh.util.job.model.callables.JobOnError;
-import com.frejdh.util.job.model.callables.JobOnFinalize;
-import com.frejdh.util.job.model.callables.JobOnStatusChange;
+import com.frejdh.util.job.model.callables.*;
 import lombok.Builder;
 import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
@@ -27,11 +24,18 @@ public class Job {
 
 	protected JobOptions jobOptions;
 
+	protected JobOnIdSet onJobIdSetCallback;
+
 	/**
 	 * ID of the job. Will be overridden by the JobQueue implementation!
 	 */
 	@Builder.Default
 	protected long jobId = UNASSIGNED_VALUE;
+
+	/**
+	 * Internal variable. Not intended for public/normal use.
+	 */
+	protected long previousJobId = UNASSIGNED_VALUE;
 
 	protected String description;
 
@@ -58,12 +62,40 @@ public class Job {
 		return jobId;
 	}
 
+	Long previousJobId() {
+		return previousJobId;
+	}
+
 	/**
+	 * For setting job ID retroactively. Can only be used when the job is in the
+	 * {@link JobStatus#WAITING_FOR_ID} state.
+	 * @param jobId Job ID to be used. Must be unique!
+	 * @throws InvalidJobStatusForNewJobIdException If the state isn't {@link JobStatus#WAITING_FOR_ID}.
+	 */
+	public void setJobId(long jobId) throws InvalidJobStatusForNewJobIdException {
+		if (getStatus().isWaitingForId()) {
+			internalSetJobId(jobId);
+		}
+		else {
+			throw new InvalidJobStatusForNewJobIdException(
+					"Cannot set custom job ID. JobStatus is currently: '" + jobFunction.getStatus()
+					+ "' but needs to be '" + JobStatus.WAITING_FOR_ID + "'. Was the job builder called with "
+					+ "setJobIdAfterCreation() ?"
+			);
+		}
+	}
+
+	/**
+	 * Internal method, not for public/normal use.
 	 * Positive numbers only
 	 */
-	void setJobId(Long id) {
-		if (id != null && id >= 0) {
-			this.jobId = id;
+	void internalSetJobId(Long newJobId) {
+		if (newJobId != null && newJobId >= 0) {
+			this.previousJobId = jobId;
+			this.jobId = newJobId;
+			if (onJobIdSetCallback != null) {
+				onJobIdSetCallback.onJobIdChange(this);
+			}
 		}
 	}
 
@@ -159,9 +191,13 @@ public class Job {
 		return jobFunction.hasStartedAlready();
 	}
 
+	void setOnJobIdSetCallback(JobOnIdSet onJobIdSetCallback) {
+		this.onJobIdSetCallback = onJobIdSetCallback;
+	}
+
 	@SuppressWarnings("FieldCanBeLocal")
 	public static class JobBuilder {
-		private static final JobAction ACTION_PLACEHOLDER = () -> {};
+		private static final JobAction ACTION_PLACEHOLDER = (jobRef) -> {};
 		private long jobId = UNASSIGNED_VALUE;
 		private JobFunction jobFunction = JobFunction.builder()
 				.action(ACTION_PLACEHOLDER)
@@ -202,6 +238,15 @@ public class Job {
 
 		public JobBuilder onStatusChange(JobOnStatusChange onStatusChange) {
 			jobFunction.addOnStatusChange(onStatusChange);
+			return this;
+		}
+
+		/**
+		 * OPTIONAL. Only set if you intend to keep track of the job IDs by yourself, and you want the job to be
+		 * created before setting the job ID. Call {@link Job#setJobId(long)}} to set the ID, or it will never start.
+		 */
+		public JobBuilder setJobIdAfterBuild() {
+			jobFunction.setStatusWithoutCallback(JobStatus.WAITING_FOR_ID);
 			return this;
 		}
 

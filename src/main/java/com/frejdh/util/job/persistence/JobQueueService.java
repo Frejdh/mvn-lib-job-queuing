@@ -16,19 +16,23 @@ import java.util.concurrent.Future;
  * Default config DAO-service.
  * Get the configured DaoService accordingly to the environmental properties.
  */
-public class DaoService extends AbstractDaoServiceImpl {
+public class JobQueueService {
 
-	private final AbstractDaoServiceImpl impl;
+	private final AbstractJobQueueDao impl;
 	private static final DaoPersistence DEFAULT_CONFIGURATION = new DaoPersistence(DaoPersistenceMode.RUNTIME);
 	protected final Map<Long, Future<?>> currentJobFuturesByJobId = new HashMap<>();
 
 	@SneakyThrows
-	public DaoService() {
-		this.impl = getImplementation();
+	public JobQueueService() {
+		this.impl = getDefaultImplementation();
+	}
+
+	public JobQueueService(AbstractJobQueueDao implementation) {
+		this.impl = implementation;
 	}
 
 	@SneakyThrows
-	private AbstractDaoServiceImpl getImplementation() {
+	private AbstractJobQueueDao getDefaultImplementation() {
 		DaoPersistence config = getImplementationConfigFromProperties();
 		return config.getImplementationClass().getDeclaredConstructor().newInstance();
 	}
@@ -45,12 +49,12 @@ public class DaoService extends AbstractDaoServiceImpl {
 	}
 
 	@SuppressWarnings("unchecked")
-	private Class<? extends AbstractDaoServiceImpl> getDaoImplementationClassFromClasspath() {
+	private Class<? extends AbstractJobQueueDao> getDaoImplementationClassFromClasspath() {
 		String classpath = Config.getString(JobQueueConfigParameters.ARG_IMPLEMENTATION_CLASS);
-		Class<? extends AbstractDaoServiceImpl> classToUse;
+		Class<? extends AbstractJobQueueDao> classToUse;
 		try {
 			classToUse = classpath != null
-					? (Class<? extends AbstractDaoServiceImpl>) Class.forName(classpath)
+					? (Class<? extends AbstractJobQueueDao>) Class.forName(classpath)
 					: DEFAULT_CONFIGURATION.getImplementationClass();
 		} catch (ClassNotFoundException e) {
 			classToUse = DEFAULT_CONFIGURATION.getImplementationClass();
@@ -58,109 +62,93 @@ public class DaoService extends AbstractDaoServiceImpl {
 		return classToUse;
 	}
 
-	@Override
 	public Job addJob(@NotNull Job job) {
 		return impl.addJob(job);
 	}
 
-	@Override
 	public Job updateJob(@NotNull Job job) {
 		return impl.updateJob(job);
 	}
 
-	@Override
 	public Job updateJobOnlyOnFreeResource(@NotNull Job job) {
 		return impl.updateJobOnlyOnFreeResource(job);
 	}
 
-	@Override
 	protected Job removeJob(@NotNull Job job) {
 		return impl.removeJob(job);
 	}
 
-	@Override
+	/**
+	 * Add job to pending state. Adds jobId if missing and when the job doesn't have a "WAITING_FOR_ID" status.
+	 * @param job to add.
+	 * @return Whether it was added or not.
+	 */
 	public boolean addToPendingJobs(Job job) {
 		return this.impl.addToPendingJobs(job);
 	}
 
-	@Override
 	public boolean addToCurrentJobs(Job job) {
 		return this.impl.addToCurrentJobs(job);
 	}
 
-	@Override
 	public boolean addToFinishedJobs(Job job) {
 		return this.impl.addToFinishedJobs(job);
 	}
 
-	@Override
 	public Job getJobById(Long id) {
 		return impl.getJobById(id);
 	}
 
 	/**
-	 * Get pending jobs in order. Oldest job starts at index 0.
+	 * Get pending jobs in order. Oldest job starts at index 0. Note, this doesn't mean that the job can be started yet.
 	 * @return A map of the jobs, when converted to a collection it will be ordered.
 	 */
-	@Override
 	public Map<Long, Job> getPendingJobs() {
 		return impl.getPendingJobs();
 	}
 
-	@Override
 	public Job getPendingJobById(Long jobId) {
 		return impl.getPendingJobById(jobId);
 	}
 
-	@Override
 	public List<Job> getPendingJobsByResource(String resource) {
 		return impl.getPendingJobsByResource(resource);
 	}
 
-	@Override
 	public Job getCurrentJobById(Long jobId) {
 		return impl.getCurrentJobById(jobId);
 	}
 
 
-	@Override
 	public Map<String, Job> getCurrentJobsForResources() {
 		return impl.getCurrentJobsForResources();
 	}
 
-	@Override
 	public Job getCurrentJobByResource(String resource) {
 		return impl.getCurrentJobByResource(resource);
 	}
 
-	@Override
 	public Map<Long, Job> getFinishedJobsById() {
 		return impl.getFinishedJobsById();
 	}
 
-	@Override
 	public List<Job> getFinishedJobsByResource(String resource) {
 		return impl.getFinishedJobsByResource(resource);
 	}
 
-	@Override
 	public Job getLastAddedJob() {
 		return impl.getLastAddedJob();
 	}
 
-	@Override
 	public Job getLastFinishedJob() {
 		return impl.getLastFinishedJob();
 	}
 
 
-
-	@Override
 	public Map<Long, Job> getCurrentJobs() {
 		return this.impl.getCurrentJobs();
 	}
 
-	@Override
 	public Map<Long, Job> getFinishedJobs() {
 		return this.impl.getFinishedJobs();
 	}
@@ -175,6 +163,18 @@ public class DaoService extends AbstractDaoServiceImpl {
 
 	public Future<?> removeCurrentJobFuturesByJobId(Long jobId) {
 		return currentJobFuturesByJobId.remove(jobId);
+	}
+
+	public boolean removeJobByJobId(long jobId) {
+		Job job = impl.getJobById(jobId);
+		if (job != null) {
+			return impl.removeJob(job) != null;
+		}
+		return false;
+	}
+
+	public List<Job> getAllJobs() {
+		return impl.getAllJobs();
 	}
 
 }
