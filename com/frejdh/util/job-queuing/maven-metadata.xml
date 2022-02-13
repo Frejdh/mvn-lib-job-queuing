@@ -3,10 +3,9 @@
   <groupId>com.frejdh.util</groupId>
   <artifactId>job-queuing</artifactId>
   <versioning>
-    <release>1.2.2</release>
     <versions>
-      <version>1.2.2</version>
+      <version>1.3.0-SNAPSHOT</version>
     </versions>
-    <lastUpdated>20211230125049</lastUpdated>
+    <lastUpdated>20220213220956</lastUpdated>
   </versioning>
 </metadata>
