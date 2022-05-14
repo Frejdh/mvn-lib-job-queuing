@@ -83,7 +83,8 @@ public class JobQueue {
 			setGlobalOnErrorForJob(job);
 			job.appendOnJobStatusChange((jobReference) -> {
 				if (options.isDebugMode()) {
-					LOGGER.info(String.format("Job with ID: [%s] was updated to the new status [%s]", job.getJobId(), job.getStatus()));
+					String jobId = (Job.UNASSIGNED_VALUE == job.getJobId() ? "UNASSIGNED" : Long.toString(job.getJobId()));
+					LOGGER.info(String.format("Job with ID: [%s] was updated to the new status [%s]", jobId, job.getStatus()));
 				}
 				daoService.updateJob(job);
 			});

@@ -1,6 +1,6 @@
 package com.frejdh.util.job;
 
-import com.frejdh.util.job.exceptions.InvalidJobStatusForNewJobIdException;
+import com.frejdh.util.job.exceptions.InvalidJobStateException;
 import com.frejdh.util.job.model.JobOptions;
 import com.frejdh.util.job.model.JobStatus;
 import com.frejdh.util.job.model.callables.*;
@@ -12,7 +12,7 @@ import org.jetbrains.annotations.NotNull;
 @SuppressWarnings("FieldMayBeFinal")
 public class Job {
 
-	protected static final int UNASSIGNED_VALUE = -1;
+	protected static final int UNASSIGNED_VALUE = -999999;
 
 	@Builder.Default
 	protected long addedTimestamp = UNASSIGNED_VALUE;
@@ -70,14 +70,21 @@ public class Job {
 	 * For setting job ID retroactively. Can only be used when the job is in the
 	 * {@link JobStatus#WAITING_FOR_ID} state.
 	 * @param jobId Job ID to be used. Must be unique!
-	 * @throws InvalidJobStatusForNewJobIdException If the state isn't {@link JobStatus#WAITING_FOR_ID}.
+	 * @throws InvalidJobStateException If the state isn't {@link JobStatus#WAITING_FOR_ID}.
 	 */
-	public void setJobId(long jobId) throws InvalidJobStatusForNewJobIdException {
-		if (getStatus().isWaitingForId()) {
+	public void setJobId(long jobId) throws InvalidJobStateException {
+		boolean isWaitingForId = getStatus().isWaitingForId();
+
+		if (isWaitingForId && jobId != UNASSIGNED_VALUE) {
 			internalSetJobId(jobId);
 		}
+		else if (isWaitingForId) {
+			throw new InvalidJobStateException(
+					"Cannot set custom job ID. The job ID [" + UNASSIGNED_VALUE + "] is reserved for unassigned IDs"
+			);
+		}
 		else {
-			throw new InvalidJobStatusForNewJobIdException(
+			throw new InvalidJobStateException(
 					"Cannot set custom job ID. JobStatus is currently: '" + jobFunction.getStatus()
 					+ "' but needs to be '" + JobStatus.WAITING_FOR_ID + "'. Was the job builder called with "
 					+ "setJobIdAfterCreation() ?"

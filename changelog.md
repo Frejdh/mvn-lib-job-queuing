@@ -10,7 +10,7 @@ For every release version.
     move to the `INITIALIZED` state as usual.
   - Note: The job in question isn't persisted when having the `WAITING_FOR_ID` state.
 - Job now has a reference to itself in the `onAction` interface.
-- Removed unused state `ADDED_TO_QUEUE`, and added state `CREATED` as a default value. `Job.getStatus()` is now never null.
+- Removed unused state `ADDED_TO_QUEUE`, and added state `CREATED` as a default value. `Job#getStatus()` is now never null.
 - Better exception handling for potential thread pool errors.
 - Code refactoring for DAO services.
 - Custom JobQueue DAO implementations can now be provided in the Job Queue builder.
