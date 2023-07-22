@@ -1,17 +1,16 @@
 package com.frejdh.util.job.tests;
 
-import com.frejdh.util.common.toolbox.ReflectionUtils;
 import com.frejdh.util.job.JobQueue;
 import com.frejdh.util.job.persistence.JobQueueService;
 import com.frejdh.util.job.persistence.config.DaoPersistenceMode;
 import com.frejdh.util.job.persistence.impl.memory.RuntimeJobQueueDao;
 import lombok.SneakyThrows;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.experimental.theories.DataPoints;
 import org.junit.experimental.theories.Theories;
 import org.junit.runner.RunWith;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;

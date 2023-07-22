@@ -5,6 +5,7 @@ import com.frejdh.util.job.JobQueueBuilder;
 import com.frejdh.util.job.model.JobStatus;
 import org.junit.Assert;
 import org.junit.experimental.theories.Theory;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -91,7 +92,7 @@ public class JobQueueTests extends AbstractQueueTests {
 		Assert.assertFalse("Expected no exceptions", jobWaitForResource.hasThrowable());
 
 		Assert.assertEquals(0, getJobQueueService().getPendingJobs().size());
-		Assert.assertEquals(0, getJobQueueService().getCurrentJobs().size());
+		Assert.assertEquals(0, getJobQueueService().getRunningJobs().size());
 		Assert.assertEquals(2, getJobQueueService().getFinishedJobs().size());
 	}
 

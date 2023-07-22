@@ -5,11 +5,20 @@ import com.frejdh.util.job.model.QueueOptions;
 import com.frejdh.util.job.persistence.JobQueueService;
 import com.frejdh.util.job.state.LocalJobWorkerThreadState;
 import com.frejdh.util.job.util.JobQueueLogger;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 public class JobQueue {
@@ -18,7 +27,7 @@ public class JobQueue {
 	protected ThreadPoolExecutor pool;
 	protected static ThreadLocal<LocalJobWorkerThreadState> threadState = new ThreadLocal<>();
 	protected volatile QueueOptions options;
-	protected volatile JobQueueService daoService;
+	protected final JobQueueService daoService;
 	protected final Map<Long, Future<?>> currentJobFuturesByJobId = new HashMap<>();
 
 	JobQueue(JobQueueService daoService, QueueOptions options, List<Job> jobs) {
@@ -86,7 +95,7 @@ public class JobQueue {
 					String jobId = (Job.UNASSIGNED_VALUE == job.getJobId() ? "UNASSIGNED" : Long.toString(job.getJobId()));
 					LOGGER.info(String.format("Job with ID: [%s] was updated to the new status [%s]", jobId, job.getStatus()));
 				}
-				daoService.updateJob(job);
+				daoService.upsertJob(job);
 			});
 
 			if (job.getStatus().isWaitingForId()) {
@@ -104,7 +113,7 @@ public class JobQueue {
 	 */
 	private void initializeJobAndAddToPending(Job job) {
 		setJobStatus(job, JobStatus.INITIALIZED);
-		daoService.addToPendingJobs(job);
+		daoService.upsertJob(job);
 		runScheduler(false);
 	}
 
@@ -125,13 +134,13 @@ public class JobQueue {
 			return false;
 		}
 
-		final Future<?> future = daoService.getCurrentJobFuturesByJobId(job.getJobId());
+		final Future<?> future = daoService.getRunningJobFutureByJobId(job.getJobId());
 		if (future == null) {
 			return false;
 		}
 
 		future.cancel(true);
-		cancelCurrentJob(job);
+		cancelRunningJob(job);
 		return true;
 	}
 
@@ -153,22 +162,24 @@ public class JobQueue {
 				continue;
 			}
 
-			if (daoService.addToCurrentJobs(job)) {
-				try {
-					if (!isRunningOnWorkerThread) {
-						Future<?> future = pool.submit(() -> executeJob(job));
-						daoService.setCurrentJobFuturesByJobId(job.getJobId(), future);
-					} else {
-						executeJob(job);
+			synchronized (daoService) {
+				if (daoService.isResourceFreeForJob(job.getResourceKey())) {
+					try {
+						if (!isRunningOnWorkerThread) {
+							Future<?> future = pool.submit(() -> executeJob(job));
+							daoService.setRunningJobFutureByJobId(job.getJobId(), future);
+						} else {
+							executeJob(job);
+						}
+					} catch (RejectedExecutionException e) {
+						LOGGER.warning("Job queue thread pool stopped, or full [is running: " + !pool.isShutdown() +
+								", current size: " + pool.getPoolSize() + ", max size: " + pool.getMaximumPoolSize() + "]");
+						break;
 					}
-				} catch (RejectedExecutionException e) {
-					LOGGER.warning("Job queue thread pool stopped, or full [is running: " + !pool.isShutdown() +
-							", current size: " + pool.getPoolSize() + ", max size: " + pool.getMaximumPoolSize() + "]");
-					break;
 				}
-			}
-			else {
-				setJobStatus(job, JobStatus.WAITING_FOR_RESOURCE);
+				else {
+					setJobStatus(job, JobStatus.WAITING_FOR_RESOURCE);
+				}
 			}
 		}
 	}
@@ -184,11 +195,12 @@ public class JobQueue {
 		long jobTimeout = job.getJobOptions().getTimeout();
 		if (jobTimeout != 0) {
 			try {
-				daoService.getCurrentJobFuturesByJobId(job.getJobId()).get(jobTimeout, TimeUnit.MILLISECONDS);
+				daoService.getRunningJobFutureByJobId(job.getJobId()).get(jobTimeout, TimeUnit.MILLISECONDS);
 			} catch (InterruptedException | ExecutionException | TimeoutException ignored) {
 			}
 		}
 		job.start();
+		daoService.removeRunningJobFutureByJobId(job.getJobId());
 		runScheduler(true);
 	}
 
@@ -207,40 +219,12 @@ public class JobQueue {
 	 *
 	 * @param job Job to remove
 	 */
-	private synchronized void cancelCurrentJob(Job job) {
+	private synchronized void cancelRunningJob(Job job) {
 		job.setStatus(JobStatus.CANCELED);
 	}
 
 	public Job getJobById(Long id) {
 		return daoService.getJobById(id);
-	}
-
-	public Job getPendingJobById(Long jobId) {
-		return daoService.getPendingJobById(jobId);
-	}
-
-	public List<Job> getPendingJobsByResource(String resource) {
-		return daoService.getPendingJobsByResource(resource);
-	}
-
-	public Job getRunningJobById(Long jobId) {
-		return daoService.getCurrentJobById(jobId);
-	}
-
-	public Map<String, Job> getCurrentJobsForResources() {
-		return daoService.getCurrentJobsForResources();
-	}
-
-	public Job getCurrentJobByResource(String resource) {
-		return daoService.getCurrentJobByResource(resource);
-	}
-
-	public Map<Long, Job> getFinishedJobsById() {
-		return daoService.getFinishedJobsById();
-	}
-
-	public List<Job> getFinishedJobsByResource(String resource) {
-		return daoService.getFinishedJobsByResource(resource);
 	}
 
 	public List<Job> getAllJobs() {

@@ -30,7 +30,7 @@ public enum JobStatus {
 			|| this.equals(RUNNING_CALLBACK);
 	}
 
-	public boolean isDone() {
+	public boolean isFinished() {
 		return this.equals(FINISHED)
 			|| this.equals(FAILED)
 			|| this.equals(CANCELED);
