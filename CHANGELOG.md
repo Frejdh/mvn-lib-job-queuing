@@ -2,6 +2,11 @@ Changelog
 -
 For every release version.
 
+# 1.4.0
+- Internal improvements.
+  - Simplified job handling logic for DAO layer. Less implementation methods needed.
+  - Added GitHub workflows for CI/CD.
+
 # 1.3.0
 - Job ID can now be set post the job build. The ID must be set however before the job is considered ready to be started.
   - New job state `WAITING_FOR_ID` has been added where the job is waiting for an ID to be set.

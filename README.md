@@ -1,3 +1,5 @@
+[![Current Build](https://github.com/Frejdh/mvn-lib-job-queuing/actions/workflows/current-build.yml/badge.svg?branch=master)](https://github.com/Frejdh/mvn-lib-job-queuing/actions/workflows/current-build.yml)
+
 Job Queuing
 -
 A job queue with optional resource locking.
