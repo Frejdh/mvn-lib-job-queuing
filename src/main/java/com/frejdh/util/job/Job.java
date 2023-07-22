@@ -3,9 +3,15 @@ package com.frejdh.util.job;
 import com.frejdh.util.job.exceptions.InvalidJobStateException;
 import com.frejdh.util.job.model.JobOptions;
 import com.frejdh.util.job.model.JobStatus;
-import com.frejdh.util.job.model.callables.*;
+import com.frejdh.util.job.model.callables.JobAction;
+import com.frejdh.util.job.model.callables.JobOnCallback;
+import com.frejdh.util.job.model.callables.JobOnError;
+import com.frejdh.util.job.model.callables.JobOnFinalize;
+import com.frejdh.util.job.model.callables.JobOnIdSet;
+import com.frejdh.util.job.model.callables.JobOnStatusChange;
 import lombok.Builder;
 import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 
@@ -43,7 +49,7 @@ public class Job {
 	public Job(@NotNull JobFunction jobFunction, long jobId, String resourceKey, JobOptions jobOptions, String description) {
 		this.jobId = jobId;
 		this.jobFunction = jobFunction;
-		this.resourceKey = resourceKey;
+		this.resourceKey = StringUtils.isNotBlank(resourceKey) ? resourceKey : null;
 		this.jobOptions = jobOptions != null ? jobOptions : JobOptions.builder().build();
 		this.description = description;
 		setRequiredJobFunctionData();
@@ -69,14 +75,14 @@ public class Job {
 	/**
 	 * For setting job ID retroactively. Can only be used when the job is in the
 	 * {@link JobStatus#WAITING_FOR_ID} state.
-	 * @param jobId Job ID to be used. Must be unique!
+	 * @param newJobId Job ID to be used. Must be unique!
 	 * @throws InvalidJobStateException If the state isn't {@link JobStatus#WAITING_FOR_ID}.
 	 */
-	public void setJobId(long jobId) throws InvalidJobStateException {
+	public void setJobId(long newJobId) throws InvalidJobStateException {
 		boolean isWaitingForId = getStatus().isWaitingForId();
 
-		if (isWaitingForId && jobId != UNASSIGNED_VALUE) {
-			internalSetJobId(jobId);
+		if ((isWaitingForId && newJobId != UNASSIGNED_VALUE) || (!isWaitingForId && this.jobId == UNASSIGNED_VALUE)) {
+			internalSetJobId(newJobId);
 		}
 		else if (isWaitingForId) {
 			throw new InvalidJobStateException(
@@ -93,10 +99,10 @@ public class Job {
 	}
 
 	/**
-	 * Internal method, not for public/normal use.
+	 * Internal method, not for public/normal use. Meant to be overridden.
 	 * Positive numbers only
 	 */
-	void internalSetJobId(Long newJobId) {
+	private void internalSetJobId(Long newJobId) {
 		if (newJobId != null && newJobId >= 0) {
 			this.previousJobId = jobId;
 			this.jobId = newJobId;

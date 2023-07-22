@@ -1,230 +1,95 @@
 package com.frejdh.util.job.persistence.impl.memory;
 
 import com.frejdh.util.job.Job;
-import com.frejdh.util.job.model.JobStatus;
 import com.frejdh.util.job.persistence.AbstractJobQueueDao;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
+import static com.frejdh.util.job.persistence.impl.memory.JobWithCategory.toJobCategory;
+
 
 public class RuntimeJobQueueDao extends AbstractJobQueueDao {
 
-	protected final Map<Long, Job> pendingJobs = new LinkedHashMap<>();
-	protected final Map<Long, Job> currentJobsById = new LinkedHashMap<>();
-	protected final Map<String, Job> currentJobsByResource = new LinkedHashMap<>();
-	protected final Map<Long, Job> finishedJobs = new LinkedHashMap<>();
+	protected final Map<Long, JobWithCategory> jobs = new LinkedHashMap<>();
 
 	@Override
-	public Job addJob(@NotNull Job job) {
-		if (job.getStatus().isPending()) {
-			return addToPendingJobs(job) ? job : null;
-		}
-		else if (job.getStatus().isRunning()) {
-			return addToCurrentJobs(job) ? job : null;
-		}
-		return addToFinishedJobs(job) ? job : null;
-	}
-
-	@Override
-	public Job updateJob(@NotNull Job job) {
-		final JobStatus jobStatus = job.getStatus();
-		final long jobId = job.getJobId();
-		final boolean pendingJobsContainsKey = pendingJobs.containsKey(jobId);
-		final boolean currentJobsContainsKey = currentJobsById.containsKey(jobId);
-		final boolean finishedJobsContainsKey = finishedJobs.containsKey(jobId);
-
-		if (!jobStatus.isPending() && pendingJobsContainsKey) {
-			removePendingJob(job);
-		}
-		if (!jobStatus.isRunning() && currentJobsContainsKey) {
-			removeCurrentJob(job);
-		}
-		if (!jobStatus.isDone() && finishedJobsContainsKey) {
-			removeFinishedJob(job);
-		}
-
-		return addJob(job);
-	}
-
-	@Override
-	public Job updateJobOnlyOnFreeResource(@NotNull Job job) {
-		String resourceKey = job.getResourceKey();
-		if (resourceKey == null || !currentJobsByResource.containsKey(resourceKey)) {
-			return updateJob(job);
-		}
-		return null;
-	}
-
-	public boolean addToPendingJobs(Job job) {
+	public Job upsertJob(@NotNull Job job) {
 		if (job.getStatus().isWaitingForId()) {
-			return false;
+			return null;
+		}
+		else if (!job.hasJobId()) {
+			job.setJobId(lastJobId.getAndIncrement());
 		}
 
-		synchronized (pendingJobs) {
-			if (!job.hasJobId()) {
-				setJobId(job, lastJobId.getAndIncrement());
-			}
-			return this.pendingJobs.put(job.getJobId(), job) != null;
+		if (!jobs.containsKey(job.getJobId())) {
+			jobs.put(job.getJobId(), new JobWithCategory(job));
 		}
-	}
-
-	/**
-	 * Attempt to add a job to the "current" job list/mapping, also removes from the "pending" jobs list/mapping.
-	 *
-	 * @param job Job to add
-	 * @return True if the job was added, false if the resource was busy.
-	 */
-	public boolean addToCurrentJobs(Job job) {
-		synchronized (currentJobsByResource) {
-			if (job.hasStartedAlready() || (job.getResourceKey() != null && currentJobsByResource.putIfAbsent(job.getResourceKey(), job) != null)) {
-				return false;
-			}
-			this.pendingJobs.remove(job.getJobId());
-			this.finishedJobs.remove(job.getJobId());
-			this.currentJobsById.put(job.getJobId(), job);
+		else {
+			jobs.get(job.getJobId()).setCategory(toJobCategory(job));
 		}
-		return true;
-	}
-
-	public boolean addToFinishedJobs(Job job) {
-		synchronized (finishedJobs) {
-			this.currentJobsById.remove(job.getJobId());
-			this.currentJobsByResource.remove(job.getResourceKey());
-			return this.finishedJobs.put(job.getJobId(), job) != null;
-		}
+		return job;
 	}
 
 	@Override
 	public Job getJobById(Long id) {
-		return pendingJobs.getOrDefault(id,
-				currentJobsById.getOrDefault(id,
-						finishedJobs.get(id)
-				)
-		);
+		return Optional.ofNullable(jobs.get(id)).map(JobWithCategory::getJob).orElse(null);
+	}
+
+	@SafeVarargs
+	private final Map<Long, Job> filterJobs(Predicate<Job>... filters) {
+		Predicate<Job> composedFilter = (job -> true);
+		for (Predicate<Job> filter : filters) {
+			composedFilter = composedFilter.and(filter);
+		}
+
+		Predicate<Job> finalComposedFilter = composedFilter;
+		return jobs.entrySet().stream()
+				.filter(entry -> finalComposedFilter.test(entry.getValue().getJob()))
+				.collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getJob()));
 	}
 
 	@Override
 	public Map<Long, Job> getPendingJobs() {
-		return new LinkedHashMap<>(pendingJobs);
+		return filterJobs(job -> job.getStatus().isPending());
 	}
 
 	@Override
 	public Map<Long, Job> getFinishedJobs() {
-		return finishedJobs;
+		return filterJobs(job -> job.getStatus().isFinished());
 	}
 
 	@Override
 	public List<Job> getAllJobs() {
-		return Stream.of(pendingJobs.values(), currentJobsById.values(), finishedJobs.values())
-				.flatMap(Collection::stream)
-				.collect(Collectors.toList());
+		return jobs.values().stream().map(JobWithCategory::getJob).collect(Collectors.toList());
 	}
 
 	@Override
-	public Job getPendingJobById(Long jobId) {
-		return pendingJobs.get(jobId);
-	}
-
-	@Override
-	public List<Job> getPendingJobsByResource(String resource) {
-		return pendingJobs.values()
-				.stream()
-				.filter(job -> resource.equals(job.getResourceKey()))
-				.collect(Collectors.toList());
-	}
-
-	@Override
-	public Job getCurrentJobById(Long jobId) {
-		return currentJobsById.get(jobId);
-	}
-
-	@Override
-	public Map<Long, Job> getCurrentJobs() {
-		return new LinkedHashMap<>(currentJobsById);
-	}
-
-	@Override
-	public Map<String, Job> getCurrentJobsForResources() {
-		return new LinkedHashMap<>(currentJobsByResource);
-	}
-
-	@Override
-	public Job getCurrentJobByResource(String resource) {
-		return currentJobsByResource.get(resource);
-	}
-
-	@Override
-	public Map<Long, Job> getFinishedJobsById() {
-		return new LinkedHashMap<>(finishedJobs);
-	}
-
-	@Override
-	public List<Job> getFinishedJobsByResource(String resource) {
-		return finishedJobs.values()
-				.stream()
-				.filter(job -> resource.equals(job.getResourceKey()))
-				.collect(Collectors.toList());
+	public Map<Long, Job> getRunningJobs() {
+		return filterJobs(job -> job.getStatus().isRunning());
 	}
 
 	@Override
 	public Job getLastAddedJob() {
-		synchronized (this) {
-			return getFirstOrNull(
-					getLastJobOfOrderedMap(pendingJobs),
-					getLastJobOfOrderedMap(currentJobsById),
-					getLastJobOfOrderedMap(finishedJobs)
-			);
-		}
+		return getLastJobOfOrderedMap(filterJobs());
 	}
 
 	@Override
 	protected Job removeJob(@NotNull Job job) {
-		Job retval = removePendingJob(job);
-		if (retval == null) {
-			retval = removeFinishedJob(job);
-		}
-		if (retval == null) {
-			retval = removeCurrentJob(job);
-		}
-		return retval;
-	}
-
-	private Job removePendingJob(Job job) {
-		Job retval;
-		synchronized (pendingJobs) {
-			retval = pendingJobs.remove(job.getJobId());
-		}
-
-		return retval;
-	}
-
-	private Job removeCurrentJob(Job job) {
-		Job retval;
-		synchronized (currentJobsById) {
-			retval = currentJobsById.remove(job.getJobId());
-			if (job.getResourceKey() != null) {
-				currentJobsByResource.remove(job.getResourceKey());
-			}
-		}
-
-		return retval;
-	}
-
-	private Job removeFinishedJob(Job job) {
-		Job retval;
-		synchronized (finishedJobs) {
-			retval = finishedJobs.remove(job.getJobId());
-		}
-
-		return retval;
+		JobWithCategory jobWithCategory = jobs.remove(job.getJobId());
+		return jobWithCategory != null ? jobWithCategory.getJob() : null;
 	}
 
 	@Override
 	public Job getLastFinishedJob() {
 		synchronized (this) {
-			return getLastJobOfOrderedMap(finishedJobs);
+			return getLastJobOfOrderedMap(getFinishedJobs());
 		}
 	}
 
@@ -236,6 +101,5 @@ public class RuntimeJobQueueDao extends AbstractJobQueueDao {
 		List<Map.Entry<Long, Job>> entryList = new ArrayList<>(jobMap.entrySet());
 		return entryList.get(entryList.size() - 1).getValue();
 	}
-
 
 }

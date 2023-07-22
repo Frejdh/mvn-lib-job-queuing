@@ -1,62 +1,37 @@
 package com.frejdh.util.job.persistence;
 
-import com.frejdh.util.common.toolbox.ReflectionUtils;
 import com.frejdh.util.job.Job;
-import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class AbstractJobQueueDao {
 
 	public AbstractJobQueueDao() { }
 
-
 	protected AtomicLong lastJobId = new AtomicLong(0);
 
-	abstract public Job updateJob(@NotNull Job job);
-
-	abstract public Job updateJobOnlyOnFreeResource(@NotNull Job job);
-
 	/**
-	 * Adds a job to the persistence layer. Job ID must be set during this stage.
+	 * Adds/updates a job to the persistence layer. Job ID will be created at this stage if not flagged to be created later.
 	 * @param job Job to add
 	 * @return The added job or null
 	 */
-	abstract public Job addJob(@NotNull Job job);
-
-	abstract public boolean addToPendingJobs(Job job);
-
-	abstract public boolean addToCurrentJobs(Job job);
-
-	abstract public boolean addToFinishedJobs(Job job);
+	abstract public Job upsertJob(@NotNull Job job);
 
 	abstract protected Job removeJob(@NotNull Job job);
 
-	abstract public Job getJobById(Long id);
-
-	abstract public Job getPendingJobById(Long jobId);
-
-	abstract public List<Job> getPendingJobsByResource(String resource);
-
-	abstract public Job getCurrentJobById(Long jobId);
-
-	abstract public Map<Long, Job> getCurrentJobs();
-
-	abstract public Map<String, Job> getCurrentJobsForResources();
-
-	abstract public Job getCurrentJobByResource(String resource);
-
-	abstract public Map<Long, Job> getFinishedJobsById();
-
-	abstract public List<Job> getFinishedJobsByResource(String resource);
+	abstract public Job getJobById(Long jobId);
 
 	abstract public Job getLastAddedJob();
 
 	abstract public Job getLastFinishedJob();
 
 	abstract public Map<Long, Job> getPendingJobs();
+
+	abstract public Map<Long, Job> getRunningJobs();
 
 	abstract public Map<Long, Job> getFinishedJobs();
 
@@ -66,7 +41,7 @@ public abstract class AbstractJobQueueDao {
 		return job != null && job.isStarted();
 	}
 
-	protected boolean isCurrentJob(Job job) {
+	protected boolean isRunningJob(Job job) {
 		return job != null && job.isRunning();
 	}
 
@@ -84,8 +59,13 @@ public abstract class AbstractJobQueueDao {
 		return null;
 	}
 
-	@SneakyThrows
-	protected void setJobId(Job job, long id) {
-		ReflectionUtils.invokeMethod(job, "internalSetJobId", id);
+	public boolean isResourceFree(String resource) {
+		if (resource == null) {
+			return true;
+		}
+
+		return getRunningJobs().values().stream()
+				.noneMatch(job -> Optional.ofNullable(job.getResourceKey()).orElse("").equals(resource));
 	}
+
 }

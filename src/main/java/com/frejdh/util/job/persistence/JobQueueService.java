@@ -7,6 +7,7 @@ import com.frejdh.util.job.persistence.config.DaoPersistence;
 import com.frejdh.util.job.persistence.config.DaoPersistenceMode;
 import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,7 @@ public class JobQueueService {
 
 	private final AbstractJobQueueDao impl;
 	private static final DaoPersistence DEFAULT_CONFIGURATION = new DaoPersistence(DaoPersistenceMode.RUNTIME);
-	protected final Map<Long, Future<?>> currentJobFuturesByJobId = new HashMap<>();
+	protected final Map<Long, Future<?>> runningJobFuturesByJobId = new HashMap<>();
 
 	@SneakyThrows
 	public JobQueueService() {
@@ -62,38 +63,23 @@ public class JobQueueService {
 		return classToUse;
 	}
 
-	public Job addJob(@NotNull Job job) {
-		return impl.addJob(job);
+	/**
+	 * Add job to pending state. Adds jobId if missing and when the job doesn't have a "WAITING_FOR_ID" status.
+	 * @param job to add.
+	 * @return Whether it was added or not.
+	 */
+	public Job upsertJob(@NotNull Job job) {
+		return impl.upsertJob(job);
 	}
 
-	public Job updateJob(@NotNull Job job) {
-		return impl.updateJob(job);
-	}
-
-	public Job updateJobOnlyOnFreeResource(@NotNull Job job) {
-		return impl.updateJobOnlyOnFreeResource(job);
+	public boolean isResourceFreeForJob(String resource) {
+		return impl.isResourceFree(resource);
 	}
 
 	protected Job removeJob(@NotNull Job job) {
 		return impl.removeJob(job);
 	}
 
-	/**
-	 * Add job to pending state. Adds jobId if missing and when the job doesn't have a "WAITING_FOR_ID" status.
-	 * @param job to add.
-	 * @return Whether it was added or not.
-	 */
-	public boolean addToPendingJobs(Job job) {
-		return this.impl.addToPendingJobs(job);
-	}
-
-	public boolean addToCurrentJobs(Job job) {
-		return this.impl.addToCurrentJobs(job);
-	}
-
-	public boolean addToFinishedJobs(Job job) {
-		return this.impl.addToFinishedJobs(job);
-	}
 
 	public Job getJobById(Long id) {
 		return impl.getJobById(id);
@@ -107,35 +93,6 @@ public class JobQueueService {
 		return impl.getPendingJobs();
 	}
 
-	public Job getPendingJobById(Long jobId) {
-		return impl.getPendingJobById(jobId);
-	}
-
-	public List<Job> getPendingJobsByResource(String resource) {
-		return impl.getPendingJobsByResource(resource);
-	}
-
-	public Job getCurrentJobById(Long jobId) {
-		return impl.getCurrentJobById(jobId);
-	}
-
-
-	public Map<String, Job> getCurrentJobsForResources() {
-		return impl.getCurrentJobsForResources();
-	}
-
-	public Job getCurrentJobByResource(String resource) {
-		return impl.getCurrentJobByResource(resource);
-	}
-
-	public Map<Long, Job> getFinishedJobsById() {
-		return impl.getFinishedJobsById();
-	}
-
-	public List<Job> getFinishedJobsByResource(String resource) {
-		return impl.getFinishedJobsByResource(resource);
-	}
-
 	public Job getLastAddedJob() {
 		return impl.getLastAddedJob();
 	}
@@ -145,24 +102,24 @@ public class JobQueueService {
 	}
 
 
-	public Map<Long, Job> getCurrentJobs() {
-		return this.impl.getCurrentJobs();
+	public Map<Long, Job> getRunningJobs() {
+		return this.impl.getRunningJobs();
 	}
 
 	public Map<Long, Job> getFinishedJobs() {
 		return this.impl.getFinishedJobs();
 	}
 
-	public Future<?> getCurrentJobFuturesByJobId(Long jobId) {
-		return currentJobFuturesByJobId.get(jobId);
+	public Future<?> getRunningJobFutureByJobId(Long jobId) {
+		return runningJobFuturesByJobId.get(jobId);
 	}
 
-	public Future<?> setCurrentJobFuturesByJobId(Long jobId, Future<?> future) {
-		return currentJobFuturesByJobId.put(jobId, future);
+	public Future<?> setRunningJobFutureByJobId(Long jobId, Future<?> future) {
+		return runningJobFuturesByJobId.put(jobId, future);
 	}
 
-	public Future<?> removeCurrentJobFuturesByJobId(Long jobId) {
-		return currentJobFuturesByJobId.remove(jobId);
+	public Future<?> removeRunningJobFutureByJobId(Long jobId) {
+		return runningJobFuturesByJobId.remove(jobId);
 	}
 
 	public boolean removeJobByJobId(long jobId) {
