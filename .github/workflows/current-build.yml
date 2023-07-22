@@ -1,4 +1,4 @@
-name: Main Branch Build
+name: Master Branch Build
 
 env:
   DEFAULT_GIT_REF: 'master'
