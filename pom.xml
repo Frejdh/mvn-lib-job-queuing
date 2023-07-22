@@ -136,6 +136,11 @@
 
     <repositories>
         <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
             <id>library-master-pom</id>
             <url>https://raw.github.com/Frejdh/mvn-lib-master/releases/</url>
         </repository>

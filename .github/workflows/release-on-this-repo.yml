@@ -9,14 +9,8 @@ env:
   TARGET_RELEASE_BRANCH: releases
 
 on:
-  push:
-    branches:
-      - master
-      - main
-      - develop
-    paths-ignore:
-      - '**.md'
-      - '.github/workflows/**'
+  repository_dispatch:
+    types: [ ci-successful ]
   workflow_dispatch:
     inputs:
       project-framework:
