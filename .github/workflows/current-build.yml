@@ -35,6 +35,6 @@ jobs:
         if: github.ref_name == env.DEFAULT_GIT_REF
         uses: peter-evans/repository-dispatch@v2
         with:
-          token: ${{ secrets.REPO_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           event-type: ci-successful
           client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "branch": "${{ github.ref_name }}"}'
