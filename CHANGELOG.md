@@ -6,6 +6,7 @@ For every release version.
 - Internal improvements.
   - Simplified job handling logic for DAO layer. Less implementation methods needed.
   - Added GitHub workflows for CI/CD.
+- Dependency updates, incl. new parent pom.
 
 # 1.3.0
 - Job ID can now be set post the job build. The ID must be set however before the job is considered ready to be started.

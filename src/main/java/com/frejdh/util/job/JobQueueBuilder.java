@@ -18,10 +18,6 @@ public class JobQueueBuilder {
 		queueOptionsBuilder = QueueOptions.builder();
 	}
 
-	public static JobQueueBuilder getInstance() {
-		return new JobQueueBuilder();
-	}
-
 	/**
 	 * Set the number of threads to utilize.
 	 * <strong>Default value is {@link QueueOptions#DEFAULT_MAX_AMOUNT_OF_THREADS}</strong>.

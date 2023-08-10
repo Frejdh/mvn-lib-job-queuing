@@ -5,10 +5,10 @@ import com.frejdh.util.job.persistence.JobQueueService;
 import com.frejdh.util.job.persistence.config.DaoPersistenceMode;
 import com.frejdh.util.job.persistence.impl.memory.RuntimeJobQueueDao;
 import lombok.SneakyThrows;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.experimental.theories.DataPoints;
 import org.junit.experimental.theories.Theories;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
@@ -37,13 +37,13 @@ public abstract class AbstractQueueTests {
 		return JOB_QUEUE_SERVICE;
 	}
 
-	@Before
+	@BeforeEach
 	public void beforeTests() {
 		JOB_QUEUE_SERVICE = new JobQueueService(new RuntimeJobQueueDao());
 		queue = null;
 	}
 
-	@After
+	@AfterEach
 	public void afterTests() {
 		if (queue != null) {
 			queue.stopNow();
