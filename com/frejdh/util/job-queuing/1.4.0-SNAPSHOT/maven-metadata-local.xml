@@ -3,7 +3,7 @@
   <groupId>com.frejdh.util</groupId>
   <artifactId>job-queuing</artifactId>
   <versioning>
-    <lastUpdated>20230810140100</lastUpdated>
+    <lastUpdated>20230810140859</lastUpdated>
     <snapshot>
       <localCopy>true</localCopy>
     </snapshot>
@@ -12,23 +12,23 @@
         <classifier>javadoc</classifier>
         <extension>jar</extension>
         <value>1.4.0-SNAPSHOT</value>
-        <updated>20230810140100</updated>
+        <updated>20230810140859</updated>
       </snapshotVersion>
       <snapshotVersion>
         <classifier>sources</classifier>
         <extension>jar</extension>
         <value>1.4.0-SNAPSHOT</value>
-        <updated>20230810140100</updated>
+        <updated>20230810140859</updated>
       </snapshotVersion>
       <snapshotVersion>
         <extension>jar</extension>
         <value>1.4.0-SNAPSHOT</value>
-        <updated>20230810140100</updated>
+        <updated>20230810140859</updated>
       </snapshotVersion>
       <snapshotVersion>
         <extension>pom</extension>
         <value>1.4.0-SNAPSHOT</value>
-        <updated>20230810140100</updated>
+        <updated>20230810140859</updated>
       </snapshotVersion>
     </snapshotVersions>
   </versioning>
