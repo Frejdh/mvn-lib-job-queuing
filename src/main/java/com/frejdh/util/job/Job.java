@@ -20,8 +20,7 @@ public class Job {
 
 	protected static final int UNASSIGNED_VALUE = -999999;
 
-	@Builder.Default
-	protected long addedTimestamp = UNASSIGNED_VALUE;
+	protected Long addedTimestamp;
 
 	@NotNull
 	protected JobFunction jobFunction;
@@ -35,8 +34,7 @@ public class Job {
 	/**
 	 * ID of the job. Will be overridden by the JobQueue implementation!
 	 */
-	@Builder.Default
-	protected long jobId = UNASSIGNED_VALUE;
+	protected long jobId;
 
 	/**
 	 * Internal variable. Not intended for public/normal use.

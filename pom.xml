@@ -5,16 +5,20 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.frejdh.util</groupId>
-        <artifactId>library-master-pom</artifactId>
-        <version>1.1.1</version>
+        <groupId>com.frejdh</groupId>
+        <artifactId>master-pom</artifactId>
+        <version>2.2.0</version>
     </parent>
 
+    <groupId>com.frejdh.util</groupId>
     <artifactId>job-queuing</artifactId>
     <version>1.4.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <properties>
+        <java.version>8</java.version> <!-- Fetched during runtime -->
+        <java.project.version>1.8</java.project.version> <!-- Use to manually configure java version for compiling -->
+
         <!-- Deployment for artifacts. Remember to change to a valid repository! -->
         <github.repository.owner>Frejdh</github.repository.owner>
         <github.repository.name>mvn-lib-job-queuing</github.repository.name>
@@ -24,10 +28,15 @@
     </properties>
 
     <dependencies>
-        <dependency> <!-- Test framework -->
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
+        <!-- Test framework -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -40,13 +49,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.11.4</version>
         </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>${lombok.version}</version>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -58,7 +66,6 @@
         <dependency> <!-- Lightweight warning annotation -->
             <groupId>com.pushtorefresh</groupId>
             <artifactId>javac-warning-annotation</artifactId>
-            <version>1.0.0</version>
         </dependency>
 
         <dependency>
@@ -70,7 +77,6 @@
         <dependency>
             <groupId>org.modelmapper</groupId>
             <artifactId>modelmapper</artifactId>
-            <version>2.4.4</version>
         </dependency>
 
     </dependencies>
@@ -81,14 +87,12 @@
                 <plugin> <!-- Tests -->
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M5</version>
                 </plugin>
 
                 <plugin> <!-- Optional. Push artifact and files to github upon mvn deploy -->
                     <inherited>false</inherited>
                     <groupId>com.github.github</groupId>
                     <artifactId>site-maven-plugin</artifactId>
-                    <version>0.11</version>
 
                     <executions> <!-- run site-maven-plugin's 'site' target as part of the build's normal 'deploy' phase -->
                         <execution> <!-- Package and push .jar file as a release, available for direct download on github -->
@@ -135,6 +139,11 @@
     </build>
 
     <repositories>
+        <repository>
+            <id>default-repo</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
         <repository>
             <id>library-master-pom</id>
             <url>https://raw.github.com/Frejdh/mvn-lib-master/releases/</url>

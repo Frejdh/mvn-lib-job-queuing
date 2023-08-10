@@ -31,3 +31,10 @@ jobs:
           java-version: 17
           cache-id: v1
           commitish: "${{ github.event.inputs.ref || env.DEFAULT_GIT_REF }}"
+      - name: Dispatch build successful event
+        if: github.ref_name == env.DEFAULT_GIT_REF
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.REPO_TOKEN }}
+          event-type: ci-successful
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "branch": "${{ github.ref_name }}"}'
